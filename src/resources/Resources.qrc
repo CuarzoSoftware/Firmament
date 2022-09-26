@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file>img/cuarzo-logo.png</file>
+        <file>img/right-arrow.png</file>
+        <file>styles/Firmament.styles</file>
+        <file>img/check.png</file>
+        <file>fonts/Inter-VariableFont_slnt,wght.ttf</file>
+        <file>fonts/Instruction Bold.ttf</file>
+        <file>img/prisma.png</file>
+    </qresource>
+</RCC>

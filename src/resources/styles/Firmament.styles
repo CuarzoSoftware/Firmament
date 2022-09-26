@@ -1,0 +1,103 @@
+Firmament
+{
+    background:rgba(255,255,255,1);
+}
+
+Firmament[DarkBackground="true"] #Menu
+{
+    background:rgba(240,240,240,0.85);
+}
+
+Firmament[DarkBackground="false"] #Menu
+{
+    background:rgba(255,255,255,1.0);
+}
+
+QLabel
+{
+    color:rgb(28,28,28);
+    font-size:13px;
+    font-family:"Inter";
+}
+
+#AppName
+{
+    font-family:"Inter";
+    font-weight:bold
+}
+
+Firmament[DarkBackground="false"] #SelectedItemBackground
+{
+    border-radius:4px;
+    background:rgba(0,0,0,0.13);
+}
+
+Firmament[DarkBackground="true"] #SelectedItemBackground
+{
+    border-radius:4px;
+    background:rgba(255,255,255,0.13);
+}
+
+TopBarItem QLabel
+{
+    font-weight:500;
+}
+
+Firmament[DarkBackground="true"] TopBarItem QLabel
+{
+    color:#FFF;
+}
+
+Firmament[DarkBackground="false"] TopBarItem QLabel
+{
+    color:rgb(28,28,28);
+}
+
+Action, MenuItem, Toggle
+{
+    border-radius:4px;
+    background:rgba(0,0,0,0)
+}
+
+Action QLabel, MenuItem QLabel, Toggle QLabel
+{
+    color:rgb(18,18,18);
+    font-weight:500;
+    font-size:12px;
+}
+
+#Shortcuts
+{
+    font-family:"Instruction";
+    font-weight:bold;
+    color:rgba(0,0,0,0.4);
+    font-size:12px;
+    letter-spacing:2px;
+}
+
+Action[hover="true"], MenuItem[hover="true"], Toggle[hover="true"]
+{
+    background:#2788f4
+}
+
+
+#MenuItem[hover="true"] QLabel,
+Action[hover="true"] QLabel,
+Action[hover="true"] #Shortcuts,
+Toggle[hover="true"] QLabel,
+Toggle[hover="true"] #Shortcuts
+{
+    color:white
+}
+
+#SeparatorBar
+{
+    background:rgba(0,0,0,0.13)
+}
+
+#SeparatorLabel
+{
+    font-size:10px;
+    font-weight:bold;
+    color:rgba(0,0,0,0.3);
+}
