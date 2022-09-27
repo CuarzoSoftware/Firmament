@@ -1,7 +1,7 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
-#include <Heaven/Heaven-Server.h>
+#include <Heaven-Server.h>
 #include <QFrame>
 #include <QBoxLayout>
 #include <QLabel>

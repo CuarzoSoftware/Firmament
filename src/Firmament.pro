@@ -4,7 +4,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
 
-LIBS += -lHeaven-Server
+INCLUDEPATH += ./../../Heaven/src/lib
+LIBS += -L./../../../build/build-Heaven -lHeaven-Server
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

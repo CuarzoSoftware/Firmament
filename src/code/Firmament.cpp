@@ -447,4 +447,3 @@ void Firmament::heavenRequest()
     hn_server_dispatch_requests(m_heaven, 0);
 }
 
- ge

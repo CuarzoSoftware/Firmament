@@ -1,7 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include <Heaven/Heaven-Server.h>
+#include <Heaven-Server.h>
 #include <QWidget>
 #include <QHBoxLayout>
 

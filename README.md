@@ -7,10 +7,12 @@ Global menu bar for Cuarzo OS.
 ### Light Background
 
 ![](screenshots/light-background.png "Light")
+![](https://i.imgur.com/StKlGbk.png "Light")
 
 ### Dark Background
 
 ![](screenshots/dark-background.png "Dark")
+![](https://i.imgur.com/IATDicO.png "Dark")
 
 ## Features
 

@@ -1,7 +1,7 @@
 #ifndef FIRMAMENT_H
 #define FIRMAMENT_H
 
-#include <Heaven/Heaven-Server.h>
+#include <Heaven-Server.h>
 #include <QHBoxLayout>
 #include <QWidget>
 #include <QLinearGradient>
