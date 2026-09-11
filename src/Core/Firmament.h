@@ -2,62 +2,77 @@
 #define FIRMAMENT_H
 
 #include <Core/Types.h>
+#include <Core/Assets.h>
 #include <XDG/XDGKit.h>
 #include <Marco/MApp.h>
 #include <Heaven/Bar/HNBar.h>
-#include <Ream/RCore.h>
-#include <Ream/RImage.h>
-#include <Surfaces/MenuSurface.h>
-#include <Nodes/Action.h>
+#include <memory>
 
 using namespace CZ;
 using namespace CZ::HNBarAPI;
 
-struct TestMenu
-{
-    TestMenu() noexcept{
-        a4.setShortcut("⌥⇧⌘Esc");
-        a8.setShortcut("⌃⌘Q");
-        a9.setShortcut("⇧⌘Q");
-        a9.setIcon("exit");
-    }
-    AKContainer systemMenu { YGFlexDirectionColumn };
-    Action a1 { "Información del Sistema", &systemMenu };
-    Action a2 { "Preferencias del Sistema...", &systemMenu };
-    Action a3 { "Tienda de Software", &systemMenu };
-    Action a4 { "Forzar salida de Desk", &systemMenu };
-    Action a5 { "Reposo", &systemMenu };
-    Action a6 { "Reiniciar...", &systemMenu };
-    Action a7 { "Apagar equipo...", &systemMenu };
-    Action a8 { "Bloquear pantalla", &systemMenu };
-    Action a9 { "Cerrar sesión", &systemMenu };
-};
-
+/**
+ * @brief The Firmament global menu app.
+ *
+ * Owns the Marco app, the XDG kit, the Heaven bar and the shared assets, and drives the whole UI:
+ *  - one TopbarSurface per screen,
+ *  - a model layer (TopbarModel/MenuModel) mirroring the Heaven objects,
+ *  - built-in "Desk" and system menus so the bar is fully functional with no client connected.
+ *
+ * The topbar shows an "active source" (a TopbarModel): the active client's menu bar, or the Desk
+ * defaults when no client is active.
+ */
 class Firmament final : public CZObject
 {
 public:
     Firmament() noexcept;
+    ~Firmament() noexcept;
+
     std::shared_ptr<MApp> marco;
     std::shared_ptr<XDGKit> xdgkit;
     std::shared_ptr<HNBar> heaven;
-    std::shared_ptr<RImage> logo;
-    std::shared_ptr<MenuSurface> menu, prevMenu;
-    std::shared_ptr<TestMenu> testMenu;
 
-    RDRMFormat safeFormat { 0 , {}};
+    Assets assets;
+    std::unique_ptr<SystemMenu> systemMenu;
+    std::unique_ptr<DeskMenus> deskMenus;
 
+    /// Opens @p item's popup under it (nullptr closes the open topbar menu).
     void setActiveTopbarItem(TopbarItem *item = nullptr) noexcept;
     CZWeak<TopbarItem> activeTopbarItem;
 
-    void setActiveMenuItem(MenuItem *item = nullptr) noexcept;
-    CZWeak<MenuItem> activeMenuItem;
+    /// Fills @p surface's menusArea with the active source's per-screen topbar items.
+    void renderTopbar(TopbarSurface *surface) noexcept;
 
-    std::shared_ptr<AKRoundSolidColor> menuItemOutline;
+    /// Logs (CZDebug) the current client name (or the built-in topbar name) and its whole
+    /// topbar -> menus -> items tree as an indented hierarchy. Debugging aid.
+    void logMenuHierarchy() noexcept;
 
-    void updateActiveClient() noexcept;
+    /// Called by a MenuSurface when it unmaps. If it was the active topbar menu (and nothing is
+    /// replacing it), the topbar selection outline is hidden across all screens.
+    void onMenuUnmapped(MenuSurface *menu) noexcept;
+
 private:
+    void hideTopbarOutline() noexcept;
+
     void initScreens() noexcept;
     void initHeaven() noexcept;
+
+    void setActiveSource(TopbarModel *source) noexcept;
+    void renderAllTopbars() noexcept;
+    void reRenderIfActive(HNObject *container) noexcept;
+    void updateActiveClient() noexcept;
+
+    void onObjectCreated(HNObject *o) noexcept;
+    void onObjectDestroyed(HNObject *o) noexcept;
+    void insertChild(HNObject *parent, HNObject *child, HNObject *before) noexcept;
+    void detachObject(HNObject *o) noexcept;
+
+    TopbarModel *m_activeSource {};
+
+    // The two pooled topbar-menu surfaces (lazy), and which is open / being replaced. A menu's
+    // content is reparented into one of these when its topbar item is activated.
+    std::unique_ptr<MenuSurface> m_menuA, m_menuB;
+    CZWeak<MenuSurface> m_activeMenu, m_prevMenu;
 };
 
 #endif // FIRMAMENT_H

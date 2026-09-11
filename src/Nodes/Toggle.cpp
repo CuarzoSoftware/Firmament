@@ -1,12 +1,11 @@
-#include <Nodes/Action.h>
+#include <Nodes/Toggle.h>
 #include <Core/Types.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
 #include <Core/Events/CZPointerButtonEvent.h>
 #include <AK/AKTheme.h>
-#include <Ream/RImage.h>
 
-Action::Action(const std::string &text, AKNode *parent) noexcept :
+Toggle::Toggle(const std::string &text, AKNode *parent) noexcept :
     MenuItem(parent),
     text(text, this),
     spacer(YGFlexDirectionColumn, false, this)
@@ -20,42 +19,39 @@ Action::Action(const std::string &text, AKNode *parent) noexcept :
         SkFontStyle::Width::kSemiCondensed_Width,
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
+
+    icon.setImage(GetFirm()->assets.check);
+    icon.layout().setWidth(MENU_ICON_SIZE);
+    icon.layout().setHeight(MENU_ICON_SIZE);
+    icon.setAlignment(CZAlignCenter);
+    icon.setSizeMode(AKImageFrame::SizeMode::Contain);
+    icon.enableReplaceImageColor(true);
+    icon.setColor(AKTheme::Text.light());
+    icon.setVisible(false); // hidden until checked
 }
 
-Action::~Action() noexcept {}
+Toggle::~Toggle() noexcept {}
 
-void Action::setText(const std::string &text) noexcept
+void Toggle::setText(const std::string &text) noexcept
 {
     this->text.setText(text);
 }
 
-void Action::setIconName(const std::string &iconName) noexcept
+void Toggle::setChecked(bool checked) noexcept
 {
-    if (iconName.empty())
-        return icon.reset();
+    m_checked = checked;
+    icon.setVisible(checked);
+}
 
-    auto img { GetFirm()->assets.loadIcon(iconName, MENU_ICON_SIZE * 2) };
-
-    if (!img)
-        return icon.reset();
-
-    if (icon)
-        icon->setImage(img);
-    else
-    {
-        icon = std::make_unique<AKImageFrame>(img);
-        icon->layout().setWidth(MENU_ICON_SIZE);
-        icon->layout().setHeight(MENU_ICON_SIZE);
-        icon->setAlignment(CZAlignCenter);
-        icon->setSizeMode(AKImageFrame::SizeMode::Contain);
-        icon->enableReplaceImageColor(true);
-        icon->insertBefore(&text);
-    }
-
+void Toggle::setEnabled(bool enabled) noexcept
+{
+    if (m_enabled == enabled)
+        return;
+    m_enabled = enabled;
     applyColors();
 }
 
-void Action::setShortcut(const std::string &sc) noexcept
+void Toggle::setShortcut(const std::string &sc) noexcept
 {
     if (sc.empty())
         return shortcut.reset();
@@ -75,15 +71,7 @@ void Action::setShortcut(const std::string &sc) noexcept
     applyColors();
 }
 
-void Action::setEnabled(bool enabled) noexcept
-{
-    if (m_enabled == enabled)
-        return;
-    m_enabled = enabled;
-    applyColors();
-}
-
-void Action::setHover(bool hover) noexcept
+void Toggle::setHover(bool hover) noexcept
 {
     if (m_hover == hover)
         return;
@@ -91,7 +79,7 @@ void Action::setHover(bool hover) noexcept
     applyColors();
 }
 
-void Action::pointerButtonEvent(const CZPointerButtonEvent &e)
+void Toggle::pointerButtonEvent(const CZPointerButtonEvent &e)
 {
     MenuItem::pointerButtonEvent(e);
 
@@ -105,7 +93,7 @@ void Action::pointerButtonEvent(const CZPointerButtonEvent &e)
     GetFirm()->setActiveTopbarItem(nullptr);
 }
 
-void Action::applyColors() noexcept
+void Toggle::applyColors() noexcept
 {
     const bool hl { m_hover && m_enabled };
 
@@ -113,13 +101,13 @@ void Action::applyColors() noexcept
     {
         text.setTextColor(CZAdaptiveColor(0xFFFFFFFF));
         if (shortcut) shortcut->setTextColor(CZAdaptiveColor(0xAAFFFFFF));
-        if (icon) icon->setColor(0xFFFFFFFF);
+        icon.setColor(0xFFFFFFFF);
     }
     else
     {
         const CZAdaptiveColor label { m_enabled ? AKTheme::Text : AKTheme::TertiaryLabel };
         text.setTextColor(label);
         if (shortcut) shortcut->setTextColor(AKTheme::TertiaryLabel);
-        if (icon) icon->setColor(label.light());
+        icon.setColor(label.light());
     }
 }

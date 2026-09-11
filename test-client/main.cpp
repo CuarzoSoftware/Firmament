@@ -31,9 +31,9 @@ int main()
     std::vector<std::shared_ptr<HNObject>> keepAlive;
 
     auto topbar   { HNTopbar::Make() };
-    auto fileMenu { HNMenu::Make("File", "", "", true, topbar.get()) };
-    auto editMenu { HNMenu::Make("Edit", "", "", true, topbar.get()) };
-    auto viewMenu { HNMenu::Make("View", "", "", true, topbar.get()) };
+    auto fileMenu { HNMenu::Make("File", "", true, topbar.get()) };
+    auto editMenu { HNMenu::Make("Edit", "", true, topbar.get()) };
+    auto viewMenu { HNMenu::Make("View", "", true, topbar.get()) };
 
     /*
 
@@ -41,11 +41,11 @@ int main()
     auto saveAction  { HNAction::Make("Save",  "document-save",    "Ctrl+S", true, fileMenu.get()) };
 
     // Nested submenu: File -> Open Recent -> (files + a further submenu).
-    auto recentMenu  { HNMenu::Make("Open Recent", "document-open-recent", "", true, fileMenu.get()) };
+    auto recentMenu  { HNMenu::Make("Open Recent", "document-open-recent", true, fileMenu.get()) };
     auto recent1     { HNAction::Make("report.pdf",  "", "", true, recentMenu.get()) };
     auto recent2     { HNAction::Make("notes.txt",   "", "", true, recentMenu.get()) };
     auto recentDiv   { HNDivider::Make("", recentMenu.get()) };
-    auto moreMenu    { HNMenu::Make("More", "", "", true, recentMenu.get()) };
+    auto moreMenu    { HNMenu::Make("More", "", true, recentMenu.get()) };
     auto more1       { HNAction::Make("archive.zip", "", "", true, moreMenu.get()) };
 
     auto divider     { HNDivider::Make("", fileMenu.get()) };

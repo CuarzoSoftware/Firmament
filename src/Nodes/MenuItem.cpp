@@ -1,4 +1,5 @@
 #include <Nodes/MenuItem.h>
+#include <Surfaces/MenuSurface.h>
 #include <Core/Firmament.h>
 #include <Core/Types.h>
 
@@ -12,6 +13,8 @@ MenuItem::MenuItem(AKNode *parent) noexcept : AKContainer(YGFlexDirectionRow, fa
 void MenuItem::pointerEnterEvent(const CZPointerEnterEvent &e)
 {
     AKContainer::pointerEnterEvent(e);
-    auto *f { GetFirm() };
-    f->setActiveMenuItem(this);
+    auto *menu { dynamic_cast<MenuSurface*>(parentWindow()) };
+
+    if (menu)
+        menu->setActiveMenuItem(this);
 }

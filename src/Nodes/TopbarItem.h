@@ -20,6 +20,10 @@ public:
 
     std::shared_ptr<AKText> title;
     std::shared_ptr<AKImageFrame> icon;
+
+    /// The menu this item opens when activated (a topbar menu, or the system menu for the logo).
+    /// Firmament reparents this model's content into one of its two pooled MenuSurfaces.
+    MenuModel *menu { nullptr };
 };
 
 #endif // TOPBARMENUNODE_H

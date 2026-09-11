@@ -1,14 +1,17 @@
 #include <Marco/MScreen.h>
 #include <Surfaces/TopbarSurface.h>
-#include <Models/TopbarModel.h>
 #include <Nodes/TopbarItem.h>
 #include <Core/Firmament.h>
+#include <Core/Assets.h>
+#include <Menus/SystemMenu.h>
 
 TopbarSurface::TopbarSurface(MScreen &screen) noexcept
 {
     screen.userData = this;
-    logo.setIcon(GetFirm()->logo);
     setScreen(&screen);
+
+    logo.setIcon(GetFirm()->assets.logo);
+    logo.menu = GetFirm()->systemMenu->menu();
 
     vibrancy.layout().setWidthPercent(100.f);
     vibrancy.layout().setHeightPercent(100.f);
@@ -20,18 +23,10 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
     layout().setMaxHeight(TOPBAR_HEIGHT);
     layout().setMinHeight(TOPBAR_HEIGHT);
 
-    // Fixed application title (bold), left.
+    // Fixed application title (bold), left. Non-interactive (no menu of its own).
     appTitle.setText("Desk");
     appTitle.title->setFontStyle(SkFontStyle::Bold());
 
-    m1.setText("Archivo");
-    m2.setText("Edición");
-    m3.setText("Visualización");
-    m4.setText("Ir");
-    m5.setText("Ventana");
-    m6.setText("Ayuda");
-
-    // Menu area, right of the title.
     menusArea.layout().setFlexDirection(YGFlexDirectionRow);
     menusArea.layout().setAlignItems(YGAlignCenter);
     menusArea.layout().setHeightPercent(100.f);
@@ -48,6 +43,15 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
     setAnchor(CZEdgeLeft | CZEdgeTop | CZEdgeRight);
     requestAvailableWidth();
     setMapped(true);
+
+    // Show the active menu bar (Desk by default) on this new screen.
+    GetFirm()->renderTopbar(this);
+
+
+    spacer.layout().setFlex(10.f);
+    debugButton.onClick.subscribe(&debugButton, [](auto){
+        GetFirm()->logMenuHierarchy();
+    });
 }
 
 void TopbarSurface::setActiveItem(TopbarItem *item) noexcept

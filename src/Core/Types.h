@@ -24,25 +24,29 @@ constexpr float ITEM_FONT_SIZE { 12.f };
 
 // Core
 class Firmament;
-class MenuController;
+class Assets;
 
-// Surfaces (Surfaces/*Surface) — custom Marco surfaces.
+// Surfaces — custom Marco surfaces.
 class TopbarSurface;
 class MenuSurface;
 
-// Nodes (Nodes/*Node) — custom AK widgets.
+// Nodes — custom AK widgets.
 class TopbarItem;
+class MenuItem;
+class MenuItemsContainer;
 class Action;
-class MenuItemNode;
-class DividerNode;
+class Toggle;
+class Divider;
+class SubMenu;
 
-// Models (Models/*Model) — app-side mirrors of Heaven objects, stored in HNObject::userData.
-class ObjectModel;
+// Models — app-side models stored in HNObject::userData (only topbars and menus need one).
 class TopbarModel;
 class MenuModel;
-class ActionModel;
-class ToggleModel;
-class DividerModel;
+
+// Menus — built-in (non-Heaven) menu definitions.
+class MenuBuilder;
+class SystemMenu;
+class DeskMenus;
 
 Firmament *GetFirm() noexcept;
 
