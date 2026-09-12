@@ -1,6 +1,7 @@
 #include <Core/Firmament.h>
 #include <Core/Log.h>
 #include <Marco/MScreen.h>
+#include <fstream>
 
 #include <Models/TopbarModel.h>
 #include <Models/MenuModel.h>
@@ -15,6 +16,8 @@
 #include <Nodes/SubMenu.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/DeskMenus.h>
+#include <Menus/AppMenu.h>
+#include <Menus/NativeMenus.h>
 
 #include <Heaven/Bar/HNClient.h>
 #include <Heaven/Bar/HNTopbar.h>
@@ -105,6 +108,8 @@ Firmament::Firmament() noexcept
 
     systemMenu = std::make_unique<SystemMenu>();
     deskMenus = std::make_unique<DeskMenus>();
+    appMenu = std::make_unique<AppMenu>();
+    nativeMenus = std::make_unique<NativeMenus>();
     m_activeSource = &deskMenus->topbar; // Desk by default
 
     initScreens();
@@ -115,8 +120,8 @@ Firmament::~Firmament() noexcept {}
 
 void Firmament::initScreens() noexcept
 {
-    marco->onScreenPlugged.subscribe(this, [](MScreen &s) { new TopbarSurface(s); });
-    marco->onScreenUnplugged.subscribe(this, [](MScreen &s){ delete static_cast<TopbarSurface*>(s.userData); });
+    marco->onScreenPlugged.subscribe(this, [this](MScreen &s) { new TopbarSurface(s); updateActiveClient(); });
+    marco->onScreenUnplugged.subscribe(this, [this](MScreen &s){ delete static_cast<TopbarSurface*>(s.userData); updateActiveClient(); });
 
     for (MScreen *s : marco->screens())
         new TopbarSurface(*s);
@@ -453,19 +458,54 @@ void Firmament::detachObject(HNObject *o) noexcept
         n->setParent(nullptr);
 }
 
+// Reads the process name of @p pid from /proc/<pid>/comm (falls back to "pid <n>").
+static std::string ProcessName(UInt32 pid) noexcept
+{
+    std::ifstream file { "/proc/" + std::to_string(pid) + "/comm" };
+    std::string name;
+    std::getline(file, name);
+
+    if (name.empty())
+        name = "pid " + std::to_string(pid);
+
+    return name;
+}
+
 void Firmament::updateActiveClient() noexcept
 {
-    std::string appName { "Desk" };
-    TopbarModel *source { &deskMenus->topbar };
+    std::string appName;
+    TopbarModel *source { nullptr };
+    bool nativeClient { false };
 
     if (auto *client { heaven->activeClient() })
     {
+        // A Heaven client: use its name and its published menu bar.
         appName = client->name();
-        if (auto *tm { TopbarModel::From(client->activeTopbar()) })
-            source = tm;
+        source = TopbarModel::From(client->activeTopbar());
+        if (!source)
+        {
+            nativeClient = true;
+            source = &nativeMenus->topbar;
+        }
+    }
+    else if (const UInt32 pid { heaven->activeClientPid() }; pid != 0)
+    {
+        // A native (non-Heaven) app the compositor identified only by pid: name it from /proc and
+        // show the built-in "Window" menu. The app menu switches to native mode.
+        nativeClient = true;
+        appName = ProcessName(pid);
+        source = &nativeMenus->topbar;
+    }
+    else
+    {
+        // Nothing active: show the built-in Desk defaults.
+        appName = "Desk";
+        source = &deskMenus->topbar;
     }
 
     setActiveSource(source);
+    appMenu->setAppName(appName);
+    appMenu->setNativeMode(nativeClient);
 
     for (MScreen *s : marco->screens())
         if (auto *tb { static_cast<TopbarSurface*>(s->userData) })

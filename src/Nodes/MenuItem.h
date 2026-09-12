@@ -29,11 +29,16 @@ public:
     virtual void setEnabled(bool enabled) noexcept { CZ_UNUSED(enabled) }
     virtual void setChecked(bool checked) noexcept { CZ_UNUSED(checked) }
 
+    /// Whether the item can be selected/activated. Disabled items are not hovered and do not get the
+    /// selection outline. Defaults to true; interactive subclasses override it.
+    virtual bool enabled() const noexcept { return true; }
+
     /// Invoked when the item is activated (pointer released over it). Set by the owner (Firmament)
     /// to forward the click to the backing Heaven object; left unset for non-interactive items.
     std::function<void()> onClicked;
 
     void pointerEnterEvent(const CZPointerEnterEvent &e) override;
+    void pointerButtonEvent(const CZPointerButtonEvent &e) override;
 };
 
 #endif // MENUITEM_H

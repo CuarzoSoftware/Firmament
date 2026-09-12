@@ -8,6 +8,8 @@
 
 MenuSurface::MenuSurface() noexcept
 {
+    slot()->layout().setPadding(YGEdgeVertical, MENU_VPADDING);
+    slot()->layout().setPadding(YGEdgeHorizontal, MENU_HPADDING);
     layout().setMinWidth(275);
 
     menuItemOutline.layout().setPositionType(YGPositionTypeAbsolute);
@@ -62,9 +64,12 @@ void MenuSurface::setActiveMenuItem(MenuItem *item) noexcept
 
     activeMenuItem = item;
 
-    if (activeMenuItem)
+    // A disabled item cannot be selected: don't mutate it (no hover) and don't place the outline
+    // behind it; just hide the outline.
+    if (activeMenuItem && activeMenuItem->enabled())
     {
         activeMenuItem->setHover(true);
+        menuItemOutline.setOpacity(1.f); // Restore opacity when the selection moves to another item.
         menuItemOutline.insertBefore(activeMenuItem);
         menuItemOutline.layout().setHeight(activeMenuItem->worldRect().height());
         menuItemOutline.layout().setPosition(YGEdgeLeft, 0.f);
@@ -73,11 +78,16 @@ void MenuSurface::setActiveMenuItem(MenuItem *item) noexcept
     else
         menuItemOutline.setParent(nullptr);
 
-    // Open/close the submenu associated with the active item (if any).
-    if (auto *sm { dynamic_cast<SubMenu*>(item) }; sm && sm->submenu)
+    // Open/close the submenu associated with the active item (a disabled submenu does not open).
+    if (auto *sm { dynamic_cast<SubMenu*>(item) }; sm && sm->submenu && sm->enabled())
         openSubMenu(sm);
     else
         closeSubMenu();
+}
+
+void MenuSurface::setOutlinePressed(bool pressed) noexcept
+{
+    menuItemOutline.setOpacity(pressed ? 0.8f : 1.f);
 }
 
 void MenuSurface::openSubMenu(SubMenu *item) noexcept
@@ -143,7 +153,7 @@ void MenuSurface::openToRight(MSurface *parent, AKNode *anchorItem) noexcept
     setAnchor(MPopup::Anchor::TopRight);
     setGravity(MPopup::Gravity::BottomRight);
     setConstraintAdjustment(MPopup::FlipX | MPopup::SlideY);
-    setOffset(0, -MENU_VPADDING);
+    //setOffset(0, -MENU_VPADDING);
     setAnchorRect(SkIRect::MakeXYWH(
         0, anchorItem->layout().calculatedTop(),
         anchorItem->layout().calculatedWidth(),

@@ -10,6 +10,7 @@ constexpr float TOPBAR_ITEM_PADDING { 10.f };
 constexpr float TOPBAR_OUTLINE_PADDING { (TOPBAR_ITEM_PADDING + 1) * 0.5f };
 
 constexpr float MENU_MIN_WIDTH { 200.f };
+constexpr float MENU_MIN_HEIGHT { 24.f };
 constexpr float MENU_VPADDING { 5.f };   // top/bottom padding of the item column
 constexpr float MENU_HPADDING { 5.f };   // left/right padding of the item column
 constexpr float MENU_ITEM_HEIGHT { 24.f };
@@ -47,6 +48,8 @@ class MenuModel;
 class MenuBuilder;
 class SystemMenu;
 class DeskMenus;
+class AppMenu;
+class NativeMenus;
 
 Firmament *GetFirm() noexcept;
 

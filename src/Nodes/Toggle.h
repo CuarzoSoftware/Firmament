@@ -17,6 +17,7 @@ public:
     void setText(const std::string &text) noexcept override;
     void setShortcut(const std::string &shortcut) noexcept override;
     void setEnabled(bool enabled) noexcept override;
+    bool enabled() const noexcept override { return m_enabled; }
     void setChecked(bool checked) noexcept override;
     void setHover(bool hover) noexcept override;
 

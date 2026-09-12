@@ -4,6 +4,7 @@
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
 #include <Menus/SystemMenu.h>
+#include <Menus/AppMenu.h>
 
 TopbarSurface::TopbarSurface(MScreen &screen) noexcept
 {
@@ -23,9 +24,10 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
     layout().setMaxHeight(TOPBAR_HEIGHT);
     layout().setMinHeight(TOPBAR_HEIGHT);
 
-    // Fixed application title (bold), left. Non-interactive (no menu of its own).
+    // Application title (bold), left. Opens the default application menu.
     appTitle.setText("Desk");
     appTitle.title->setFontStyle(SkFontStyle::Bold());
+    appTitle.menu = GetFirm()->appMenu->menu();
 
     menusArea.layout().setFlexDirection(YGFlexDirectionRow);
     menusArea.layout().setAlignItems(YGAlignCenter);

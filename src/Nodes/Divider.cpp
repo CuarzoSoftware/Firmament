@@ -41,6 +41,12 @@ void Divider::setHover(bool hover) noexcept
 
 void Divider::siblingsChanged() noexcept
 {
+    // A plain (untitled) separator at the very top or bottom of the menu has nothing to separate,
+    // so hide it entirely (it then takes no layout space either).
+    const bool atEdge { parent() &&
+        (parent()->children().front() == this || parent()->children().back() == this) };
+
+    setVisible(!(atEdge && !text));
     updateLine();
 }
 

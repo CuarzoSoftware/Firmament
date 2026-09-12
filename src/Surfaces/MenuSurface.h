@@ -38,6 +38,9 @@ public:
     void setActiveMenuItem(MenuItem *item = nullptr) noexcept;
     CZWeak<MenuItem> activeMenuItem;
 
+    /// Dims the selection outline while an item is being pressed, restoring it on release.
+    void setOutlinePressed(bool pressed) noexcept;
+
     /// Opens this popup under a topbar item (parent = topbar surface).
     void openUnder(MSurface *parent, AKNode *anchorItem) noexcept;
     /// Opens this popup to the right of a submenu item (parent = the parent popup).

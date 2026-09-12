@@ -35,6 +35,8 @@ public:
     Assets assets;
     std::unique_ptr<SystemMenu> systemMenu;
     std::unique_ptr<DeskMenus> deskMenus;
+    std::unique_ptr<AppMenu> appMenu;
+    std::unique_ptr<NativeMenus> nativeMenus;
 
     /// Opens @p item's popup under it (nullptr closes the open topbar menu).
     void setActiveTopbarItem(TopbarItem *item = nullptr) noexcept;

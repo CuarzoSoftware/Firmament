@@ -18,6 +18,7 @@ public:
     void setIconName(const std::string &iconName) noexcept override;
     void setShortcut(const std::string &shortcut) noexcept override;
     void setEnabled(bool enabled) noexcept override;
+    bool enabled() const noexcept override { return m_enabled; }
     void setHover(bool hover) noexcept override;
 
     void pointerButtonEvent(const CZPointerButtonEvent &e) override;
