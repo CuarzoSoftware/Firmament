@@ -493,7 +493,7 @@ void Firmament::updateActiveClient() noexcept
         // A native (non-Heaven) app the compositor identified only by pid: name it from /proc and
         // show the built-in "Window" menu. The app menu switches to native mode.
         nativeClient = true;
-        appName = ProcessName(pid);
+        appName = heaven->activeClientName().empty() ? ProcessName(pid) : heaven->activeClientName();
         source = &nativeMenus->topbar;
     }
     else
