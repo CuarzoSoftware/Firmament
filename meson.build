@@ -11,7 +11,7 @@ project(
 
 cz_core_dep         = dependency('cz-core', fallback:['cz-core', 'cz_core_dep'])
 cz_xdgkit_dep       = dependency('cz-xdgkit', fallback:['cz-xdgkit', 'cz_xdgkit_dep'])
-cz_skia_dep         = dependency('cz-skia', fallback:['cz-skia', 'cz_skia_dep'])
+cz_skia_dep         = dependency('cz-skia', fallback:['cz-skia', 'cz_skia_dep'], include_type: 'system')
 cz_ream_dep         = dependency('cz-ream', fallback:['cz-ream', 'cz_ream_dep'])
 cz_kay_dep          = dependency('cz-kay', fallback:['cz-kay', 'cz_kay_dep'])
 cz_marco_dep        = dependency('cz-marco', fallback:['cz-marco', 'cz_marco_dep'])
