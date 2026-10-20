@@ -36,7 +36,7 @@ Divider::~Divider() noexcept
 
 void Divider::setHover(bool hover) noexcept
 {
-
+    CZ_UNUSED(hover)
 }
 
 void Divider::siblingsChanged() noexcept
