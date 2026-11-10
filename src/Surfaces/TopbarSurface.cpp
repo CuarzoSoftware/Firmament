@@ -49,11 +49,16 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
     // Show the active menu bar (Desk by default) on this new screen.
     GetFirm()->renderTopbar(this);
 
-
     spacer.layout().setFlex(10.f);
-    debugButton.onClick.subscribe(&debugButton, [](auto){
-        GetFirm()->logMenuHierarchy();
-    });
+
+    // Date and time in the right corner, styled like the menu titles.
+    clock.setFontSize(TOPBAR_FONT_SIZE);
+    clock.setFontStyle(SkFontStyle(
+        SkFontStyle::Weight::kMedium_Weight,
+        SkFontStyle::Width::kSemiCondensed_Width,
+        SkFontStyle::Slant::kUpright_Slant));
+    clock.layout().setMargin(YGEdgeHorizontal, TOPBAR_ITEM_PADDING);
+    clock.setText(GetFirm()->clockText());
 }
 
 void TopbarSurface::setActiveItem(TopbarItem *item) noexcept

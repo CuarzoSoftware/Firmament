@@ -6,7 +6,7 @@
 #include <Marco/Nodes/MVibrancyView.h>
 #include <AK/Nodes/AKRoundSolidColor.h>
 #include <AK/Nodes/AKContainer.h>
-#include <AK/Nodes/AKButton.h>
+#include <AK/Nodes/AKText.h>
 #include <Core/Types.h>
 
 using namespace CZ;
@@ -31,7 +31,7 @@ public:
     AKContainer menusArea { YGFlexDirectionRow, false, &vibrancy };
     AKRoundSolidColor outline { SkColorSetARGB(96, 0, 0, 0), CZBorderRadius::Make(4), &vibrancy };
     AKContainer spacer { YGFlexDirectionRow, false, &vibrancy };
-    AKButton debugButton { "Debug", &vibrancy };
+    AKText clock { "", &vibrancy };    ///< Date and time, right corner (see Firmament::clockText())
 
     void pointerButtonEvent(const CZPointerButtonEvent &e) override;
 };

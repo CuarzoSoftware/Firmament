@@ -2,6 +2,10 @@
 #include <Core/Log.h>
 #include <Marco/MScreen.h>
 #include <fstream>
+#include <cctype>
+#include <chrono>
+#include <locale.h>
+#include <ctime>
 
 #include <Models/TopbarModel.h>
 #include <Models/MenuModel.h>
@@ -117,9 +121,77 @@ Firmament::Firmament() noexcept
 
     initScreens();
     initHeaven();
+
+    m_clockTimer = std::make_unique<CZTimer>([this](CZTimer *){ updateClock(); scheduleClock(); });
+    scheduleClock();
 }
 
 Firmament::~Firmament() noexcept {}
+
+// --------------------------------------------------------------------------
+// Clock
+// --------------------------------------------------------------------------
+
+std::string Firmament::clockText() const noexcept
+{
+    const time_t now { time(nullptr) };
+    tm local;
+    localtime_r(&now, &local);
+
+    // The user's LC_TIME (without changing the process locale).
+    static const locale_t loc { newlocale(LC_TIME_MASK, "", (locale_t)0) };
+    const auto format = [&local](const char *fmt) {
+        char buf[64];
+        const size_t n { loc ? strftime_l(buf, sizeof(buf), fmt, &local, loc) : strftime(buf, sizeof(buf), fmt, &local) };
+        return std::string(buf, n);
+    };
+
+    std::string weekday { format("%a") };
+    std::string month { format("%b") };
+    const std::string day { format("%-d") };
+    const std::string hour { format("%H:%M") };
+
+    // Weekday capitalized, like the macOS menu bar ("mar" → "Mar").
+    if (!weekday.empty() && (unsigned char)weekday[0] < 0x80)
+        weekday[0] = std::toupper((unsigned char)weekday[0]);
+
+    std::string lang;
+
+    for (const char *var : { "LC_ALL", "LC_TIME", "LANG" })
+        if (const char *v { getenv(var) }; v && v[0])
+        {
+            lang = v;
+            break;
+        }
+
+    // Spanish: day before month and the abbreviation's period ("Mar 10 nov. 11:52").
+    if (lang.starts_with("es"))
+    {
+        if (!month.empty() && month.back() != '.' && month != format("%B"))
+            month += '.';
+
+        return weekday + " " + day + " " + month + " " + hour;
+    }
+
+    return weekday + " " + month + " " + day + " " + hour;
+}
+
+void Firmament::updateClock() noexcept
+{
+    const std::string text { clockText() };
+
+    for (MScreen *s : marco->screens())
+        if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
+            tb->clock.setText(text);
+}
+
+void Firmament::scheduleClock() noexcept
+{
+    // Right after the next minute starts.
+    const auto now { std::chrono::system_clock::now().time_since_epoch() };
+    const auto ms { std::chrono::duration_cast<std::chrono::milliseconds>(now).count() };
+    m_clockTimer->start(UInt32(60000 - ms % 60000 + 50));
+}
 
 void Firmament::initScreens() noexcept
 {

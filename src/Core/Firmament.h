@@ -6,6 +6,7 @@
 #include <XDG/XDGKit.h>
 #include <Marco/MApp.h>
 #include <Heaven/Bar/HNBar.h>
+#include <Core/CZTimer.h>
 #include <memory>
 
 using namespace CZ;
@@ -46,6 +47,15 @@ public:
     void setActiveTopbarItem(TopbarItem *item = nullptr) noexcept;
     CZWeak<TopbarItem> activeTopbarItem;
 
+    /**
+     * @brief The top bar clock's text, in the user's locale (LC_TIME), e.g. "Mar 10 nov. 11:52" in
+     *        Spanish or "Tue Nov 10 11:52" in English.
+     */
+    std::string clockText() const noexcept;
+
+    /// Refreshes the clock on every top bar.
+    void updateClock() noexcept;
+
     /// Fills @p surface's menusArea with the active source's per-screen topbar items.
     void renderTopbar(TopbarSurface *surface) noexcept;
 
@@ -59,6 +69,8 @@ public:
 
 private:
     void hideTopbarOutline() noexcept;
+    void scheduleClock() noexcept;
+    std::unique_ptr<CZTimer> m_clockTimer;
 
     void initScreens() noexcept;
     void onScreenPlugged(MScreen &screen) noexcept;
