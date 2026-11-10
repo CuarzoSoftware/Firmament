@@ -10,10 +10,34 @@
 TopbarItem::TopbarItem(AKNode *parent) noexcept : AKContainer(YGFlexDirectionRow, false, parent)
 {
     setInputRegion(nullptr);
-    layout().setPadding(YGEdgeHorizontal, TOPBAR_ITEM_PADDING);
     layout().setHeightPercent(100.f);
     layout().setJustifyContent(YGJustifyCenter);
     layout().setAlignItems(YGAlignCenter);
+    applyUIScale();
+}
+
+void TopbarItem::setUIScale(float scale) noexcept
+{
+    if (m_uiScale == scale)
+        return;
+
+    m_uiScale = scale;
+    applyUIScale();
+}
+
+void TopbarItem::applyUIScale() noexcept
+{
+    const float s { m_uiScale };
+    layout().setPadding(YGEdgeHorizontal, TOPBAR_ITEM_PADDING * s);
+
+    if (title)
+        title->setFontSize(TOPBAR_FONT_SIZE * s);
+
+    if (icon)
+    {
+        icon->layout().setHeight(TOPBAR_ICON_SIZE * s);
+        icon->layout().setWidth((TOPBAR_ICON_SIZE + 3) * s);
+    }
 }
 
 void TopbarItem::setText(const std::string &text) noexcept
@@ -21,12 +45,14 @@ void TopbarItem::setText(const std::string &text) noexcept
     if (!title)
     {
         title.reset(new AKText(text, this));
-        title->setFontSize(TOPBAR_FONT_SIZE);
+        title->setFontSize(TOPBAR_FONT_SIZE * m_uiScale);
         title->setFontStyle(SkFontStyle(
             SkFontStyle::Weight::kMedium_Weight,
-            SkFontStyle::Width::kSemiCondensed_Width,
+            SkFontStyle::Width::kNormal_Width,
             SkFontStyle::Slant::kUpright_Slant));
     }
+    else
+        title->setText(text);
 }
 
 void TopbarItem::setIcon(std::shared_ptr<RImage> img) noexcept
@@ -36,8 +62,8 @@ void TopbarItem::setIcon(std::shared_ptr<RImage> img) noexcept
         icon.reset(new AKImageFrame(img, this));
         icon->setAlignment(CZ::CZAlignCenter);
         icon->setSizeMode(AKImageFrame::SizeMode::Contain);
-        icon->layout().setHeight(TOPBAR_ICON_SIZE);
-        icon->layout().setWidth(TOPBAR_ICON_SIZE + 3);
+        icon->layout().setHeight(TOPBAR_ICON_SIZE * m_uiScale);
+        icon->layout().setWidth((TOPBAR_ICON_SIZE + 3) * m_uiScale);
     }
 }
 

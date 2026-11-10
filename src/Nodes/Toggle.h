@@ -33,6 +33,8 @@ private:
     bool m_hover { false };
     bool m_enabled { true };
     bool m_checked { false };
+protected:
+    void applyUIScale() noexcept override;
 };
 
 #endif // TOGGLE_H

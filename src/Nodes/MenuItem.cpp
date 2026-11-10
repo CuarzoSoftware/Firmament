@@ -11,6 +11,20 @@ MenuItem::MenuItem(AKNode *parent) noexcept : AKContainer(YGFlexDirectionRow, fa
     layout().setGap(YGGutterAll, 8.f);
 }
 
+void MenuItem::setUIScale(float scale) noexcept
+{
+    if (m_uiScale == scale)
+        return;
+
+    m_uiScale = scale;
+    applyUIScale();
+}
+
+void MenuItem::applyUIScale() noexcept
+{
+    layout().setGap(YGGutterAll, 8.f * m_uiScale);
+}
+
 void MenuItem::pointerEnterEvent(const CZPointerEnterEvent &e)
 {
     AKContainer::pointerEnterEvent(e);

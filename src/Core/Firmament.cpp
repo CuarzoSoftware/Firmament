@@ -19,6 +19,10 @@
 #include <Nodes/Divider.h>
 #include <Nodes/SubMenu.h>
 #include <Menus/SystemMenu.h>
+#include <Menus/ScaleMenu.h>
+#include <XDG/XDGINI.h>
+#include <filesystem>
+#include <cmath>
 #include <Menus/DeskMenus.h>
 #include <Menus/AppMenu.h>
 #include <Menus/NativeMenus.h>
@@ -112,7 +116,10 @@ Firmament::Firmament() noexcept
 
     assets.init();
 
+    loadSettings();
     systemMenu = std::make_unique<SystemMenu>();
+    scaleMenu = std::make_unique<ScaleMenu>();
+    scaleMenu->update();
     deskMenus = std::make_unique<DeskMenus>();
     appMenu = std::make_unique<AppMenu>();
     nativeMenus = std::make_unique<NativeMenus>();
@@ -131,6 +138,76 @@ Firmament::~Firmament() noexcept {}
 // --------------------------------------------------------------------------
 // Clock
 // --------------------------------------------------------------------------
+
+static std::filesystem::path SettingsPath() noexcept
+{
+    std::filesystem::path dir;
+
+    if (const char *config { getenv("XDG_CONFIG_HOME") }; config && config[0] == '/')
+        dir = config;
+    else if (const char *home { getenv("HOME") }; home && home[0] == '/')
+        dir = std::filesystem::path(home) / ".config";
+
+    return dir / "cz-firmament" / "firmament.conf";
+}
+
+void Firmament::loadSettings() noexcept
+{
+    std::error_code ec;
+
+    if (!std::filesystem::is_regular_file(SettingsPath(), ec))
+        return;
+
+    auto ini { XDGINI::LoadFile(SettingsPath()) };
+
+    if (!ini)
+        return;
+
+    if (auto group { ini->find("Topbar") }; group != ini->end())
+        if (auto it { group->second.find("Scale") }; it != group->second.end())
+        {
+            const float value { std::strtof(it->second.c_str(), nullptr) };
+
+            for (const float scale : TOPBAR_SCALES)
+                if (std::fabs(scale - value) < 0.01f)
+                    m_uiScale = scale;
+        }
+}
+
+void Firmament::saveSettings() noexcept
+{
+    const auto path { SettingsPath() };
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+
+    const auto tmp { path.string() + ".tmp" };
+    {
+        std::ofstream out { tmp, std::ios::trunc };
+
+        if (!out)
+            return;
+
+        out << "[Topbar]\nScale=" << m_uiScale << '\n';
+    }
+
+    std::filesystem::rename(tmp, path, ec);
+}
+
+void Firmament::setUIScale(float scale) noexcept
+{
+    if (scale == m_uiScale)
+        return;
+
+    m_uiScale = scale;
+    saveSettings();
+    setActiveTopbarItem(nullptr);
+    scaleMenu->update();
+
+    for (MScreen *s : marco->screens())
+        if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
+            tb->updateUIScale();
+}
+
 
 std::string Firmament::clockText() const noexcept
 {
@@ -289,7 +366,11 @@ void Firmament::renderTopbar(TopbarSurface *surface) noexcept
         area.children().back()->setParent(nullptr);
 
     for (MenuModel *m : effectiveMenus(m_activeSource))
-        m->topbarItem(surface)->setParent(&area);
+    {
+        TopbarItem *item { m->topbarItem(surface) };
+        item->setParent(&area);
+        item->setUIScale(surface->uiScale());
+    }
 }
 
 // --- Hierarchy logging ----------------------------------------------------

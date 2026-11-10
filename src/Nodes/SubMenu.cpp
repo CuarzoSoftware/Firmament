@@ -10,23 +10,36 @@ SubMenu::SubMenu(const std::string &text, AKNode *parent) noexcept :
     spacer(YGFlexDirectionColumn, false, this),
     caret(this)
 {
-    layout().setPadding(YGEdgeTop, 4.f);
-    layout().setPadding(YGEdgeBottom, 5.f);
-    layout().setPadding(YGEdgeHorizontal, 10.f);
-    this->text.setFontSize(ITEM_FONT_SIZE);
     this->text.setFontStyle(SkFontStyle(
         SkFontStyle::Weight::kMedium_Weight,
-        SkFontStyle::Width::kSemiCondensed_Width,
+        SkFontStyle::Width::kNormal_Width,
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
 
-    caret.layout().setWidth(MENU_ICON_SIZE);
-    caret.layout().setHeight(MENU_ICON_SIZE);
     caret.enableReplaceImageColor(true);
     caret.setSizeMode(AKImageFrame::SizeMode::Contain);
     caret.setAlignment(CZAlignCenter);
     caret.setImage(GetFirm()->assets.caret);
     caret.setColor(AKTheme::TertiaryLabel.light());
+    applyUIScale();
+}
+
+void SubMenu::applyUIScale() noexcept
+{
+    MenuItem::applyUIScale();
+    const float k { m_uiScale };
+    layout().setPadding(YGEdgeTop, 4.f * k);
+    layout().setPadding(YGEdgeBottom, 5.f * k);
+    layout().setPadding(YGEdgeHorizontal, 10.f * k);
+    text.setFontSize(ITEM_FONT_SIZE * k);
+    caret.layout().setWidth(MENU_ICON_SIZE * k);
+    caret.layout().setHeight(MENU_ICON_SIZE * k);
+
+    if (icon)
+    {
+        icon->layout().setWidth(MENU_ICON_SIZE * k);
+        icon->layout().setHeight(MENU_ICON_SIZE * k);
+    }
 }
 
 SubMenu::~SubMenu() noexcept {}
@@ -41,7 +54,7 @@ void SubMenu::setIconName(const std::string &iconName) noexcept
     if (iconName.empty())
         return icon.reset();
 
-    auto img { GetFirm()->assets.loadIcon(iconName, MENU_ICON_SIZE * 2) };
+    auto img { GetFirm()->assets.loadIcon(iconName, Int32(MENU_ICON_SIZE * 2 * TOPBAR_MAX_SCALE)) };
 
     if (!img)
         return icon.reset();
@@ -51,8 +64,8 @@ void SubMenu::setIconName(const std::string &iconName) noexcept
     else
     {
         icon = std::make_unique<AKImageFrame>(img);
-        icon->layout().setWidth(MENU_ICON_SIZE);
-        icon->layout().setHeight(MENU_ICON_SIZE);
+        icon->layout().setWidth(MENU_ICON_SIZE * m_uiScale);
+        icon->layout().setHeight(MENU_ICON_SIZE * m_uiScale);
         icon->setAlignment(CZAlignCenter);
         icon->setSizeMode(AKImageFrame::SizeMode::Contain);
         icon->enableReplaceImageColor(true);

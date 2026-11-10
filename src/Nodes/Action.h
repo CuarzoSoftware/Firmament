@@ -32,6 +32,8 @@ private:
     void applyColors() noexcept;
     bool m_hover { false };
     bool m_enabled { true };
+protected:
+    void applyUIScale() noexcept override;
 };
 
 #endif // ACTION_H

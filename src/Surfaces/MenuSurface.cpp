@@ -1,4 +1,8 @@
 #include <Surfaces/MenuSurface.h>
+#include <Core/CZWeak.h>
+#include <Core/CZTimer.h>
+#include <cmath>
+#include <Surfaces/TopbarSurface.h>
 #include <Models/MenuModel.h>
 #include <Nodes/MenuItemsContainer.h>
 #include <Nodes/MenuItem.h>
@@ -8,9 +12,8 @@
 
 MenuSurface::MenuSurface() noexcept
 {
-    slot()->layout().setPadding(YGEdgeVertical, MENU_VPADDING);
-    slot()->layout().setPadding(YGEdgeHorizontal, MENU_HPADDING);
-    layout().setMinWidth(275);
+    m_uiScale = 0.f;
+    setUIScale(1.f);
 
     menuItemOutline.layout().setPositionType(YGPositionTypeAbsolute);
     menuItemOutline.layout().setWidthPercent(100.f);
@@ -55,7 +58,8 @@ void MenuSurface::host(MenuModel *menu) noexcept
 
 void MenuSurface::setActiveMenuItem(MenuItem *item) noexcept
 {
-    if (item == activeMenuItem)
+    // The item being activated keeps the selection while it blinks.
+    if (item == activeMenuItem || m_activating)
         return;
     if (item) assert(item->parentWindow() == this);
 
@@ -134,14 +138,32 @@ void MenuSurface::refreshSize() noexcept
     layout().setHeight(s.height());
 }
 
+void MenuSurface::setUIScale(float scale) noexcept
+{
+    if (m_hostedContent)
+        m_hostedContent->setUIScale(scale);
+
+    if (m_uiScale == scale)
+        return;
+
+    m_uiScale = scale;
+    slot()->layout().setPadding(YGEdgeVertical, MENU_VPADDING * scale);
+    slot()->layout().setPadding(YGEdgeHorizontal, MENU_HPADDING * scale);
+    layout().setMinWidth(275 * scale);
+    menuItemOutline.setBorderRadius(CZBorderRadius::Make(Int32(std::round(4 * scale))));
+}
+
 void MenuSurface::openUnder(MSurface *parent, AKNode *anchorItem) noexcept
 {
+    // Under a top bar item: that screen's scale.
+    const float scale { dynamic_cast<TopbarSurface*>(parent) ? static_cast<TopbarSurface*>(parent)->uiScale() : 1.f };
+    setUIScale(scale);
     setParent(parent);
     setAnchor(MPopup::Anchor::BottomLeft);
     setGravity(MPopup::Gravity::BottomRight);
 
     const SkIRect r { anchorItem->worldRect() };
-    setAnchorRect(SkIRect::MakeXYWH(r.x() - TOPBAR_OUTLINE_PADDING, 0, r.width(), TOPBAR_HEIGHT));
+    setAnchorRect(SkIRect::MakeXYWH(Int32(r.x() - TOPBAR_OUTLINE_PADDING * scale), 0, r.width(), Int32(std::round(TOPBAR_HEIGHT * scale))));
 
     refreshSize();
     setMapped(true);
@@ -149,6 +171,10 @@ void MenuSurface::openUnder(MSurface *parent, AKNode *anchorItem) noexcept
 
 void MenuSurface::openToRight(MSurface *parent, AKNode *anchorItem) noexcept
 {
+    // A submenu: its parent menu's scale.
+    if (auto *menu { dynamic_cast<MenuSurface*>(parent) })
+        setUIScale(menu->m_uiScale);
+
     setParent(parent);
     setAnchor(MPopup::Anchor::TopRight);
     setGravity(MPopup::Gravity::BottomRight);
@@ -160,4 +186,53 @@ void MenuSurface::openToRight(MSurface *parent, AKNode *anchorItem) noexcept
         anchorItem->layout().calculatedHeight()));
     refreshSize();
     setMapped(true);
+}
+
+void MenuSurface::Activate(MenuItem &item) noexcept
+{
+    auto *menu { dynamic_cast<MenuSurface*>(item.parentWindow()) };
+
+    const auto run = [](MenuItem *i) {
+        if (i->onClicked)
+            i->onClicked();
+
+        // Dismiss the whole menu chain after activating the item.
+        GetFirm()->setActiveTopbarItem(nullptr);
+    };
+
+    if (!menu)
+    {
+        run(&item);
+        return;
+    }
+
+    if (menu->m_activating)
+        return;
+
+    menu->m_activating = true;
+
+    // Highlight off, on, off, on (like macOS), then the click.
+    static constexpr UInt32 StepMs { 60 };
+    static constexpr int Steps { 4 };
+
+    for (int i = 1; i <= Steps; i++)
+    {
+        CZTimer::OneShot(StepMs * i, [run, weakMenu = CZWeak<MenuSurface>(menu), weakItem = CZWeak<MenuItem>(&item), on = i % 2 == 0, last = i == Steps](CZTimer *) {
+            if (!weakMenu || !weakItem)
+            {
+                if (weakMenu && last)
+                    weakMenu->m_activating = false;
+                return;
+            }
+
+            weakMenu->menuItemOutline.setOpacity(on ? 1.f : 0.f);
+            weakItem->setHover(on);
+
+            if (!last)
+                return;
+
+            weakMenu->m_activating = false;
+            run(weakItem.get());
+        });
+    }
 }

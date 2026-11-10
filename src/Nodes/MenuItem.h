@@ -33,12 +33,21 @@ public:
     /// selection outline. Defaults to true; interactive subclasses override it.
     virtual bool enabled() const noexcept { return true; }
 
+    /// Scales paddings, fonts and icons (the screen's UI scale, see Firmament::uiScale()).
+    void setUIScale(float scale) noexcept;
+    float uiScale() const noexcept { return m_uiScale; }
+
     /// Invoked when the item is activated (pointer released over it). Set by the owner (Firmament)
     /// to forward the click to the backing Heaven object; left unset for non-interactive items.
     std::function<void()> onClicked;
 
     void pointerEnterEvent(const CZPointerEnterEvent &e) override;
     void pointerButtonEvent(const CZPointerButtonEvent &e) override;
+
+protected:
+    /// Applies uiScale() to the item's sizes. Subclasses call the base and add theirs.
+    virtual void applyUIScale() noexcept;
+    float m_uiScale { 1.f };
 };
 
 #endif // MENUITEM_H

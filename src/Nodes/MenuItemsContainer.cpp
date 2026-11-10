@@ -15,7 +15,11 @@ MenuItemsContainer::MenuItemsContainer(AKNode *parent) noexcept : AKContainer(YG
         for (AKNode *c : children())
         {
             auto *child { dynamic_cast<MenuItem*>(c) };
-            if (child) child->siblingsChanged();
+            if (child)
+            {
+                child->setUIScale(m_uiScale);
+                child->siblingsChanged();
+            }
         }
     });
 
@@ -27,4 +31,18 @@ MenuItemsContainer::MenuItemsContainer(AKNode *parent) noexcept : AKContainer(YG
             if (child) child->siblingsChanged();
         }
     });
+}
+
+void MenuItemsContainer::setUIScale(float scale) noexcept
+{
+    if (m_uiScale == scale)
+        return;
+
+    m_uiScale = scale;
+    layout().setMinWidth(MENU_MIN_WIDTH * scale);
+    layout().setMinHeight(MENU_MIN_HEIGHT * scale);
+
+    for (AKNode *c : children())
+        if (auto *child { dynamic_cast<MenuItem*>(c) })
+            child->setUIScale(scale);
 }

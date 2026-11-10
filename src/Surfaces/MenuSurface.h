@@ -38,6 +38,17 @@ public:
     void setActiveMenuItem(MenuItem *item = nullptr) noexcept;
     CZWeak<MenuItem> activeMenuItem;
 
+    /**
+     * @brief Activates a clicked item like macOS: its highlight blinks a few times, then its
+     *        onClicked runs and the whole menu chain is dismissed.
+     *
+     * Hovering other items does nothing meanwhile. Safe if the item or menu goes away meanwhile.
+     */
+    static void Activate(MenuItem &item) noexcept;
+
+    /// Whether an item of this menu is blinking before being activated.
+    bool activating() const noexcept { return m_activating; }
+
     /// Dims the selection outline while an item is being pressed, restoring it on release.
     void setOutlinePressed(bool pressed) noexcept;
 
@@ -50,9 +61,14 @@ public:
     std::function<void()> beforeMap;
 
 private:
+    bool m_activating { false };
     void openSubMenu(SubMenu *item) noexcept;
     void closeSubMenu() noexcept;
     void refreshSize() noexcept;
+
+    /// Sizes the popup and its content for the UI scale of the screen it opens on.
+    void setUIScale(float scale) noexcept;
+    float m_uiScale { 1.f };
 
     CZWeak<MenuItemsContainer> m_hostedContent; ///< The menu content currently reparented into us.
 

@@ -1,4 +1,5 @@
 #include <Nodes/Toggle.h>
+#include <Surfaces/MenuSurface.h>
 #include <Core/Types.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
@@ -10,24 +11,34 @@ Toggle::Toggle(const std::string &text, AKNode *parent) noexcept :
     text(text, this),
     spacer(YGFlexDirectionColumn, false, this)
 {
-    layout().setPadding(YGEdgeTop, 4.f);
-    layout().setPadding(YGEdgeBottom, 5.f);
-    layout().setPadding(YGEdgeHorizontal, 10.f);
-    this->text.setFontSize(ITEM_FONT_SIZE);
     this->text.setFontStyle(SkFontStyle(
         SkFontStyle::Weight::kMedium_Weight,
-        SkFontStyle::Width::kSemiCondensed_Width,
+        SkFontStyle::Width::kNormal_Width,
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
 
     icon.setImage(GetFirm()->assets.check);
-    icon.layout().setWidth(MENU_ICON_SIZE);
-    icon.layout().setHeight(MENU_ICON_SIZE);
     icon.setAlignment(CZAlignCenter);
     icon.setSizeMode(AKImageFrame::SizeMode::Contain);
     icon.enableReplaceImageColor(true);
     icon.setColor(AKTheme::Text.light());
-    icon.setVisible(false); // hidden until checked
+    icon.setOpacity(0.f); // Invisible until checked, but its space stays (titles keep aligned)
+    applyUIScale();
+}
+
+void Toggle::applyUIScale() noexcept
+{
+    MenuItem::applyUIScale();
+    const float k { m_uiScale };
+    layout().setPadding(YGEdgeTop, 4.f * k);
+    layout().setPadding(YGEdgeBottom, 5.f * k);
+    layout().setPadding(YGEdgeHorizontal, 10.f * k);
+    text.setFontSize(ITEM_FONT_SIZE * k);
+    icon.layout().setWidth(MENU_ICON_SIZE * k);
+    icon.layout().setHeight(MENU_ICON_SIZE * k);
+
+    if (shortcut)
+        shortcut->setFontSize(ITEM_FONT_SIZE * k);
 }
 
 Toggle::~Toggle() noexcept {}
@@ -40,7 +51,7 @@ void Toggle::setText(const std::string &text) noexcept
 void Toggle::setChecked(bool checked) noexcept
 {
     m_checked = checked;
-    icon.setVisible(checked);
+    icon.setOpacity(checked ? 1.f : 0.f); // The check mark's space stays when unchecked
 }
 
 void Toggle::setEnabled(bool enabled) noexcept
@@ -61,10 +72,10 @@ void Toggle::setShortcut(const std::string &sc) noexcept
     else
     {
         shortcut = std::make_unique<AKText>(sc, this);
-        shortcut->setFontSize(ITEM_FONT_SIZE);
+        shortcut->setFontSize(ITEM_FONT_SIZE * m_uiScale);
         shortcut->setFontStyle(SkFontStyle(
             SkFontStyle::Weight::kMedium_Weight,
-            SkFontStyle::Width::kSemiCondensed_Width,
+            SkFontStyle::Width::kNormal_Width,
             SkFontStyle::Slant::kUpright_Slant));
     }
 
@@ -86,11 +97,8 @@ void Toggle::pointerButtonEvent(const CZPointerButtonEvent &e)
     if (e.button != BTN_LEFT || e.pressed || !m_enabled)
         return;
 
-    if (onClicked)
-        onClicked();
-
-    // Dismiss the whole menu chain after activating the item.
-    GetFirm()->setActiveTopbarItem(nullptr);
+    // Blinks, then runs onClicked and dismisses the whole menu chain (see MenuSurface::activate()).
+    MenuSurface::Activate(*this);
 }
 
 void Toggle::applyColors() noexcept

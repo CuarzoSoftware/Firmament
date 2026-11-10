@@ -47,6 +47,17 @@ public:
     void setActiveTopbarItem(TopbarItem *item = nullptr) noexcept;
     CZWeak<TopbarItem> activeTopbarItem;
 
+    /// Size of the bar and its menus on every screen (1 = normal, see TOPBAR_SCALES).
+    float uiScale() const noexcept { return m_uiScale; }
+
+    /// Resizes the bar and menus on every screen and saves the choice in
+    /// `$XDG_CONFIG_HOME/cz-firmament/firmament.conf` (read by Desk too, to keep its icons clear of
+    /// the bar).
+    void setUIScale(float scale) noexcept;
+
+    /// The size menu at the right end of the bar.
+    std::unique_ptr<ScaleMenu> scaleMenu;
+
     /**
      * @brief The top bar clock's text, in the user's locale (LC_TIME), e.g. "Mar 10 nov. 11:52" in
      *        Spanish or "Tue Nov 10 11:52" in English.
@@ -70,6 +81,9 @@ public:
 private:
     void hideTopbarOutline() noexcept;
     void scheduleClock() noexcept;
+    void loadSettings() noexcept;
+    void saveSettings() noexcept;
+    float m_uiScale { 1.f };
     std::unique_ptr<CZTimer> m_clockTimer;
 
     void initScreens() noexcept;

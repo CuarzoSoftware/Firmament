@@ -19,6 +19,8 @@ public:
     void updateLine() noexcept;
     AKThreePatch line { CZOrientation::H, this };
     std::unique_ptr<AKText> text;
+protected:
+    void applyUIScale() noexcept override;
 };
 
 #endif // DIVIDER_H

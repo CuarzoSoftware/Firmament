@@ -13,9 +13,6 @@ Divider::Divider(const std::string &title, AKNode *parent) noexcept : MenuItem(p
     layout().setAlignItems(YGAlignFlexStart);
     layout().setJustifyContent(YGJustifyCenter);
     layout().setWidthPercent(100.f);
-    layout().setMargin(YGEdgeVertical, 4.f);
-    layout().setPadding(YGEdgeHorizontal, 10.f);
-    layout().setGap(YGGutterAll, 6.f);
     setTitle(title);
 
     line.layout().setWidthPercent(100.f);
@@ -27,6 +24,18 @@ Divider::Divider(const std::string &title, AKNode *parent) noexcept : MenuItem(p
     line.setCenterSrcRect(SkRect::MakeXYWH(3, 0, 1, 3));
     line.setOpacity(SkScalar(SkColorGetA(AKTheme::TertiaryLabel.light()))/255.f);
     updateLine();
+    applyUIScale();
+}
+
+void Divider::applyUIScale() noexcept
+{
+    const float k { m_uiScale };
+    layout().setMargin(YGEdgeVertical, 4.f * k);
+    layout().setPadding(YGEdgeHorizontal, 10.f * k);
+    layout().setGap(YGGutterAll, 6.f * k);
+
+    if (text)
+        text->setFontSize(9.f * k);
 }
 
 Divider::~Divider() noexcept
@@ -69,7 +78,7 @@ void Divider::setTitle(const std::string &title) noexcept
         text = std::make_unique<AKText>(title, this);
         text->setTextColor(AKTheme::TertiaryLabel);
         text->setFontStyle(SkFontStyle::Bold());
-        text->setFontSize(9.f);
+        text->setFontSize(9.f * m_uiScale);
     }
 }
 
