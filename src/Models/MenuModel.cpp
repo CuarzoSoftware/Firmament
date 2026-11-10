@@ -4,8 +4,12 @@
 #include <Nodes/SubMenu.h>
 #include <Heaven/Bar/HNMenu.h>
 
+std::unordered_set<MenuModel*> MenuModel::s_all;
+
 MenuModel::MenuModel(HNMenu *hnMenu) noexcept : m_hnMenu(hnMenu)
 {
+    s_all.insert(this);
+
     if (hnMenu)
     {
         hnMenu->userData = this;
@@ -17,6 +21,8 @@ MenuModel::MenuModel(HNMenu *hnMenu) noexcept : m_hnMenu(hnMenu)
 
 MenuModel::~MenuModel()
 {
+    s_all.erase(this);
+
     if (m_hnMenu && m_hnMenu->userData == this)
         m_hnMenu->userData = nullptr;
 
@@ -51,6 +57,12 @@ TopbarItem *MenuModel::topbarItem(TopbarSurface *surface) noexcept
 void MenuModel::removeTopbarItem(TopbarSurface *surface) noexcept
 {
     m_topbarItems.erase(surface);
+}
+
+void MenuModel::RemoveTopbarItems(TopbarSurface *surface) noexcept
+{
+    for (MenuModel *menu : s_all)
+        menu->removeTopbarItem(surface);
 }
 
 void MenuModel::detachTopbarItems() noexcept

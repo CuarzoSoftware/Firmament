@@ -61,6 +61,8 @@ private:
     void hideTopbarOutline() noexcept;
 
     void initScreens() noexcept;
+    void onScreenPlugged(MScreen &screen) noexcept;
+    void onScreenUnplugged(MScreen &screen) noexcept;
     void initHeaven() noexcept;
 
     void setActiveSource(TopbarModel *source) noexcept;

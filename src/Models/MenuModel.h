@@ -5,6 +5,7 @@
 #include <Heaven/Bar/HNObject.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 
 using namespace CZ;
@@ -41,6 +42,10 @@ public:
 
     TopbarItem *topbarItem(TopbarSurface *surface) noexcept;  ///< Per-screen topbar node (lazy).
     void removeTopbarItem(TopbarSurface *surface) noexcept;
+
+    /// Destroys every menu's topbar node for @p surface (called when its screen is unplugged, so a
+    /// later surface reusing the same address doesn't pick up stale nodes).
+    static void RemoveTopbarItems(TopbarSurface *surface) noexcept;
     void detachTopbarItems() noexcept;
 
     SubMenu *subMenuItem() noexcept;             ///< Single submenu node (lazy).
@@ -49,6 +54,7 @@ public:
     void detach() noexcept;                       ///< Detach every representation from its parent.
 
 private:
+    static std::unordered_set<MenuModel*> s_all;
     HNMenu *m_hnMenu;
     std::string m_title;
     std::string m_iconName;

@@ -123,11 +123,64 @@ Firmament::~Firmament() noexcept {}
 
 void Firmament::initScreens() noexcept
 {
-    marco->onScreenPlugged.subscribe(this, [this](MScreen &s) { new TopbarSurface(s); updateActiveClient(); });
-    marco->onScreenUnplugged.subscribe(this, [this](MScreen &s){ delete static_cast<TopbarSurface*>(s.userData); updateActiveClient(); });
+    marco->onScreenPlugged.subscribe(this, [this](MScreen &s){ onScreenPlugged(s); });
+    marco->onScreenUnplugged.subscribe(this, [this](MScreen &s){ onScreenUnplugged(s); });
 
     for (MScreen *s : marco->screens())
-        new TopbarSurface(*s);
+        onScreenPlugged(*s);
+}
+
+void Firmament::onScreenPlugged(MScreen &screen) noexcept
+{
+    if (screen.userData)
+        return; // Already has a topbar
+
+    Log(CZInfo, CZLN, "Screen plugged: {} ({} screen(s))", screen.props().name, marco->screens().size());
+    new TopbarSurface(screen); // Sets screen.userData and renders the active menu bar
+
+    // Refresh the app title (and app menu) on the new bar.
+    if (heaven)
+        updateActiveClient();
+}
+
+void Firmament::onScreenUnplugged(MScreen &screen) noexcept
+{
+    auto *topbar { static_cast<TopbarSurface*>(screen.userData) };
+    screen.userData = nullptr;
+
+    // The screen is still listed while this signal is emitted.
+    const size_t remaining { marco->screens().size() - 1 };
+    Log(CZInfo, CZLN, "Screen unplugged: {} ({} screen(s) left{})", screen.props().name, remaining,
+        remaining == 0 ? ", e.g. the compositor switched VT; waiting for screens to come back" : "");
+
+    if (!topbar)
+        return;
+
+    // Close the open topbar menu if it hangs from this bar (its popups can't outlive their parent).
+    // Done for every pooled menu, since the one being replaced may still be mapped.
+    bool closeMenus { activeTopbarItem && activeTopbarItem->scene() && activeTopbarItem->scene()->window() == topbar };
+
+    for (auto *menu : { m_menuA.get(), m_menuB.get() })
+        if (menu && menu->parent() == topbar)
+            closeMenus = true;
+
+    if (closeMenus)
+    {
+        setActiveTopbarItem(nullptr);
+
+        for (auto *menu : { m_menuA.get(), m_menuB.get() })
+        {
+            if (menu && menu->parent() == topbar)
+            {
+                menu->setMapped(false);
+                menu->setParent(nullptr);
+            }
+        }
+    }
+
+    // Drop the per-screen topbar nodes every menu created for this bar.
+    MenuModel::RemoveTopbarItems(topbar);
+    delete topbar;
 }
 
 // --- Topbar rendering -----------------------------------------------------
