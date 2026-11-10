@@ -19,7 +19,7 @@
 #include <Menus/AppMenu.h>
 #include <Menus/NativeMenus.h>
 #include <Apps/AppActions.h>
-#include <Apps/DesktopEntry.h>
+#include <XDG/XDGDesktopEntry.h>
 
 #include <Heaven/Bar/HNClient.h>
 #include <Heaven/Bar/HNTopbar.h>
@@ -546,7 +546,7 @@ static std::string UnregisteredAppName(const HNBar &heaven) noexcept
 
     if (const auto &appId { heaven.activeClientAppId() }; !appId.empty())
     {
-        if (auto entry { DesktopEntry::Find(appId) }; entry && !entry->name.empty())
+        if (auto entry { GetFirm()->xdgkit->desktopEntry(appId) }; entry && !entry->name.empty())
             return entry->name;
 
         return appId;

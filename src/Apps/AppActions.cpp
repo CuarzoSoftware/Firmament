@@ -168,7 +168,7 @@ void AppActions::setAppId(const std::string &appId) noexcept
     if (m_appId.empty())
         return;
 
-    m_entry = DesktopEntry::Find(m_appId);
+    m_entry = GetFirm()->xdgkit->desktopEntry(m_appId);
 
     // GApplications own their app id; D-Bus activatable apps own their desktop file id (usually
     // the same, but the .desktop lookup may have matched a lowercase variant).

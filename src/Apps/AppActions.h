@@ -1,7 +1,7 @@
 #ifndef APPACTIONS_H
 #define APPACTIONS_H
 
-#include <Apps/DesktopEntry.h>
+#include <XDG/XDGDesktopEntry.h>
 #include <Menus/MenuBuilder.h>
 #include <Models/TopbarModel.h>
 #include <CZ/Core/CZObject.h>
@@ -50,7 +50,7 @@ public:
     const std::string &appId() const noexcept { return m_appId; }
 
     /// The tracked app's .desktop entry, if found.
-    const std::shared_ptr<const DesktopEntry> &desktopEntry() const noexcept { return m_entry; }
+    const std::shared_ptr<const XDGDesktopEntry> &desktopEntry() const noexcept { return m_entry; }
 
     /// Whether the app exports the parameterless GTK action @p name (it may be disabled).
     bool has(const std::string &name) const noexcept { return m_gtkActions.contains(name); }
@@ -86,7 +86,7 @@ private:
     static int ChangedSignal(sd_bus_message *m, void *userdata, sd_bus_error *err);
 
     std::string m_appId;
-    std::shared_ptr<const DesktopEntry> m_entry;
+    std::shared_ptr<const XDGDesktopEntry> m_entry;
     std::string m_busName;  // Well-known name the app (may) own, empty if none
     std::string m_path;     // Its GApplication / org.freedesktop.Application object path
     std::unordered_map<std::string, bool> m_gtkActions; // parameterless actions -> enabled
