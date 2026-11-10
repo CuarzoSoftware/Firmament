@@ -23,13 +23,16 @@ public:
     /// Updates the "About <App>…", "Hide <App>" and "Quit <App>" labels with the active app name.
     void setAppName(const std::string &name) noexcept;
 
-    /// Native (non-Heaven) app mode: the About action is disabled (there is no client to ask), and
-    /// Quit sends a termination signal to the app's pid instead of a Heaven quit event.
+    /// Native (non-Heaven) app mode: About/Settings/Quit are routed to the app's D-Bus actions
+    /// (about/preferences/quit, see AppActions) when it exports them. Otherwise About and Settings
+    /// are disabled (there is no client to ask), and Quit sends a termination signal to the app's pid
+    /// (or closes its window if the pid is unknown) instead of a Heaven quit event.
     void setNativeMode(bool native) noexcept;
 
 private:
     MenuModel *m_menu {};
     Action *m_about {};
+    Action *m_settings {};
     Action *m_hide {};
     Action *m_quit {};
 };

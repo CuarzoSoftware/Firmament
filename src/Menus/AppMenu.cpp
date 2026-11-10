@@ -2,6 +2,7 @@
 #include <Models/MenuModel.h>
 #include <Nodes/Action.h>
 #include <Core/Firmament.h>
+#include <Apps/AppActions.h>
 #include <Heaven/Bar/HNBar.h>
 #include <Heaven/Bar/HNClient.h>
 #include <sys/types.h>
@@ -16,7 +17,7 @@ AppMenu::AppMenu() noexcept
     m_about = addAction(m_menu, "About");
 
     addDivider(m_menu);
-    auto *settings { addAction(m_menu, "Settings…", "⌘,") };
+    m_settings = addAction(m_menu, "Settings…", "⌘,");
 
     addDivider(m_menu);
     addSubMenu(m_menu, "Services"); // Left empty for now (later: D-Bus services from apps).
@@ -31,17 +32,33 @@ AppMenu::AppMenu() noexcept
 
     setAppName({});
 
-    // About / Settings / Quit target the active client.
-    m_about->onClicked = []{ if (auto *c { GetFirm()->heaven->activeClient() }) c->about(); };
-    settings->onClicked = []{ if (auto *c { GetFirm()->heaven->activeClient() }) c->settings(); };
+    // About / Settings / Quit target the active Heaven client, or the D-Bus actions of an
+    // unregistered app.
+    m_about->onClicked = []{
+        auto *firm { GetFirm() };
+        if (auto *c { firm->heaven->activeClient() }) c->about();
+        else if (firm->appActions->enabled("about")) firm->appActions->activate("about");
+    };
 
-    // Quit a Heaven client via its quit event, or a native app by signalling its pid.
+    m_settings->onClicked = []{
+        auto *firm { GetFirm() };
+        if (auto *c { firm->heaven->activeClient() }) c->settings();
+        else if (firm->appActions->enabled("preferences")) firm->appActions->activate("preferences");
+    };
+
+    // Quit a Heaven client via its quit event, an unregistered app via its D-Bus quit action or by
+    // signalling its pid, and as a last resort close its window.
     m_quit->onClicked = []{
-        const auto &heaven { GetFirm()->heaven };
+        auto *firm { GetFirm() };
+        const auto &heaven { firm->heaven };
         if (auto *c { heaven->activeClient() })
             c->quit();
+        else if (firm->appActions->enabled("quit"))
+            firm->appActions->activate("quit");
         else if (const UInt32 pid { heaven->activeClientPid() }; pid != 0)
             ::kill(static_cast<pid_t>(pid), SIGTERM);
+        else
+            heaven->closeActiveClient();
     };
 
     // Hide / Hide Others / Show All are handled by the compositor.
@@ -60,5 +77,7 @@ void AppMenu::setAppName(const std::string &name) noexcept
 
 void AppMenu::setNativeMode(bool native) noexcept
 {
-    m_about->setEnabled(!native);
+    const auto &actions { GetFirm()->appActions };
+    m_about->setEnabled(!native || actions->enabled("about"));
+    m_settings->setEnabled(!native || actions->enabled("preferences"));
 }

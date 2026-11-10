@@ -51,6 +51,9 @@ class DeskMenus;
 class AppMenu;
 class NativeMenus;
 
+// Apps — information about unregistered (non-Heaven) apps.
+class AppActions;
+
 Firmament *GetFirm() noexcept;
 
 #endif // TYPES_H

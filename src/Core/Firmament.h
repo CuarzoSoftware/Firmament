@@ -38,6 +38,10 @@ public:
     std::unique_ptr<AppMenu> appMenu;
     std::unique_ptr<NativeMenus> nativeMenus;
 
+    /// GTK (org.gtk.Actions) and .desktop actions of the active app when it isn't a registered
+    /// Heaven client (tracked from the app id reported by the compositor).
+    std::unique_ptr<AppActions> appActions;
+
     /// Opens @p item's popup under it (nullptr closes the open topbar menu).
     void setActiveTopbarItem(TopbarItem *item = nullptr) noexcept;
     CZWeak<TopbarItem> activeTopbarItem;

@@ -18,6 +18,8 @@
 #include <Menus/DeskMenus.h>
 #include <Menus/AppMenu.h>
 #include <Menus/NativeMenus.h>
+#include <Apps/AppActions.h>
+#include <Apps/DesktopEntry.h>
 
 #include <Heaven/Bar/HNClient.h>
 #include <Heaven/Bar/HNTopbar.h>
@@ -110,6 +112,7 @@ Firmament::Firmament() noexcept
     deskMenus = std::make_unique<DeskMenus>();
     appMenu = std::make_unique<AppMenu>();
     nativeMenus = std::make_unique<NativeMenus>();
+    appActions = std::make_unique<AppActions>();
     m_activeSource = &deskMenus->topbar; // Desk by default
 
     initScreens();
@@ -324,6 +327,15 @@ void Firmament::initHeaven() noexcept
     heaven->onObjectDestroyed.subscribe(this, [this](HNObject *o){ onObjectDestroyed(o); });
 
     heaven->onActiveClientChanged.subscribe(this, [this](HNBar*){ updateActiveClient(); });
+
+    // The unregistered app's actions arrived/changed. If its menu bar is being replaced while one
+    // of its menus is open, close it first (the old bar is destroyed right after this).
+    appActions->onChanged.subscribe(this, [this]{
+        if (m_activeSource && m_activeSource != appActions->topbar() && m_activeSource != &nativeMenus->topbar
+            && m_activeSource != &deskMenus->topbar && !m_activeSource->hnTopbar())
+            setActiveTopbarItem(nullptr);
+        updateActiveClient();
+    });
     heaven->onClientTopbarChanged.subscribe(this, [this](HNClient *c){ if (c == heaven->activeClient()) updateActiveClient(); });
     heaven->onClientNameChanged.subscribe(this, [this](HNClient *c){ if (c == heaven->activeClient()) updateActiveClient(); });
     heaven->onClientDestroyed.subscribe(this, [this](HNClient*){ updateActiveClient(); });
@@ -471,13 +483,57 @@ static std::string ProcessName(UInt32 pid) noexcept
     return name;
 }
 
+// Name for an app that isn't a registered Heaven client. In order of preference: the name the
+// compositor reported, the app id's .desktop entry name, the app id itself and, only if the
+// compositor sent nothing else, the process name of its pid.
+static std::string UnregisteredAppName(const HNBar &heaven) noexcept
+{
+    if (!heaven.activeClientAppName().empty())
+        return heaven.activeClientAppName();
+
+    if (const auto &appId { heaven.activeClientAppId() }; !appId.empty())
+    {
+        if (auto entry { DesktopEntry::Find(appId) }; entry && !entry->name.empty())
+            return entry->name;
+
+        return appId;
+    }
+
+    if (const UInt32 pid { heaven.activeClientPid() }; pid != 0)
+        return ProcessName(pid);
+
+    return {};
+}
+
 void Firmament::updateActiveClient() noexcept
 {
     std::string appName;
     TopbarModel *source { nullptr };
     bool nativeClient { false };
+    std::string unregisteredAppId;
 
-    if (auto *client { heaven->activeClient() })
+    auto *client { heaven->activeClient() };
+    const bool unregistered { !client && (heaven->activeClientPid() != 0 ||
+                                          !heaven->activeClientAppId().empty() ||
+                                          !heaven->activeClientAppName().empty()) };
+
+    if (unregistered)
+        unregisteredAppId = heaven->activeClientAppId();
+
+    // Switching away from (or to another) unregistered app drops the current action menu bar:
+    // stop showing it before AppActions destroys it.
+    if (unregisteredAppId != appActions->appId())
+    {
+        if (appActions->topbar() && m_activeSource == appActions->topbar())
+        {
+            setActiveTopbarItem(nullptr);
+            m_activeSource = &nativeMenus->topbar;
+        }
+
+        appActions->setAppId(unregisteredAppId); // async: onChanged re-runs this when actions arrive
+    }
+
+    if (client)
     {
         // A Heaven client: use its name and its published menu bar.
         appName = client->name();
@@ -488,13 +544,14 @@ void Firmament::updateActiveClient() noexcept
             source = &nativeMenus->topbar;
         }
     }
-    else if (const UInt32 pid { heaven->activeClientPid() }; pid != 0)
+    else if (unregistered)
     {
-        // A native (non-Heaven) app the compositor identified only by pid: name it from /proc and
-        // show the built-in "Window" menu. The app menu switches to native mode.
+        // An app that isn't a Heaven client (or hasn't registered yet), identified by the compositor.
+        // Show the menus mapped from its D-Bus/.desktop actions, or the built-in "Window" menu. The
+        // app menu switches to native mode.
         nativeClient = true;
-        appName = ProcessName(pid);
-        source = &nativeMenus->topbar;
+        appName = UnregisteredAppName(*heaven);
+        source = appActions->topbar() ? appActions->topbar() : &nativeMenus->topbar;
     }
     else
     {

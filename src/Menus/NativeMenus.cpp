@@ -8,7 +8,7 @@ using namespace CZ;
 
 NativeMenus::NativeMenus() noexcept
 {
-    auto *window { newMenu("Window") };
+    auto *window { m_window = newMenu("Window") };
     topbar.insertMenu(window, nullptr);
 
     auto *minimized  { addAction(window, "Toggle Minimized") };
