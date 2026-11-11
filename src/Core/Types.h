@@ -3,7 +3,11 @@
 
 #define DEFAULT_ICON_THEME "WhiteSur-light"
 
+// WhiteSur-light doesn't inherit WhiteSur, which has icons it lacks (e.g. battery-level-*-symbolic).
+#define FALLBACK_ICON_THEME "WhiteSur"
+
 constexpr float TOPBAR_HEIGHT { 24.f };
+constexpr int TOPBAR_WINDOW_GAP { 1 }; // Reserved below the bar (exclusive zone), not drawn: a gap above windows
 constexpr float TOPBAR_ICON_SIZE { 14.f };
 constexpr float TOPBAR_FONT_SIZE { 12.f };
 constexpr float TOPBAR_ITEM_PADDING { 10.f };
@@ -32,6 +36,9 @@ constexpr float ITEM_FONT_SIZE { 12.f };
 // Core
 class Firmament;
 class Assets;
+class Status;
+class ControlPanel;
+class Controls;
 
 // Surfaces — custom Marco surfaces.
 class TopbarSurface;

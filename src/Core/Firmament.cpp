@@ -20,6 +20,10 @@
 #include <Nodes/SubMenu.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/ScaleMenu.h>
+#include <Core/Status.h>
+#include <Surfaces/ControlPanel.h>
+#include <Core/Controls.h>
+#include <Core/CZTime.h>
 #include <XDG/XDGINI.h>
 #include <filesystem>
 #include <cmath>
@@ -125,6 +129,31 @@ Firmament::Firmament() noexcept
     nativeMenus = std::make_unique<NativeMenus>();
     appActions = std::make_unique<AppActions>();
     m_activeSource = &deskMenus->topbar; // Desk by default
+
+    // Before the bars (they show it).
+    status = std::make_unique<Status>();
+    status->onChanged.subscribe(this, [this]{
+        Log(CZDebug, CZLN, "Status: {}, {}, {}", status->networkInfo, status->volumeInfo, status->batteryInfo);
+
+        for (MScreen *s : marco->screens())
+            if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
+                tb->updateStatus();
+
+        if (controlPanel && controlPanel->mapped())
+            controlPanel->updateStatus();
+    });
+
+    controls = std::make_unique<Controls>();
+    controls->onChanged.subscribe(this, [this]{
+        if (controlPanel && controlPanel->mapped())
+            controlPanel->updateStatus();
+    });
+
+    // Dark mode changed elsewhere (e.g. GNOME's settings): the tile follows.
+    marco->onColorSchemeChanged.subscribe(this, [this](CZColorScheme){
+        if (controlPanel && controlPanel->mapped())
+            controlPanel->updateStatus();
+    });
 
     initScreens();
     initHeaven();
@@ -473,6 +502,7 @@ void Firmament::setActiveTopbarItem(TopbarItem *item) noexcept
             return; // already open
 
         auto *tb { static_cast<TopbarSurface*>(item->scene()->window()) };
+        closeControlPanel(); // A menu replaces it
         activeTopbarItem.reset(item);
         tb->setActiveItem(item);
 
@@ -501,6 +531,54 @@ void Firmament::setActiveTopbarItem(TopbarItem *item) noexcept
         m_activeMenu->setMapped(false);
 
     hideTopbarOutline();
+}
+
+void Firmament::toggleControlPanel(TopbarSurface *topbar) noexcept
+{
+    if (controlPanel && controlPanel->mapped() && controlPanel->parent() == topbar)
+    {
+        closeControlPanel();
+        return;
+    }
+
+    // Pressing the indicators while it's open: the compositor dismisses it (a press outside a popup)
+    // before this press is handled here. That press closes it, it doesn't reopen it.
+    if (controlPanel && controlPanel->parent() == topbar && CZTime::Ms() - m_controlPanelClosedMs < 250)
+        return;
+
+    // Replaces any open menu.
+    setActiveTopbarItem(nullptr);
+
+    if (!controlPanel)
+    {
+        controlPanel = std::make_unique<ControlPanel>();
+
+        // Dismissed (clicking away, Escape...): drop the outline under the indicators, unless a
+        // menu took its place.
+        controlPanel->onMappedChanged.subscribe(this, [this]{
+            if (!controlPanel->mapped())
+                m_controlPanelClosedMs = CZTime::Ms();
+
+            if (controlPanel->mapped() || m_activeMenu)
+                return;
+
+            for (MScreen *s : marco->screens())
+                if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
+                    tb->setActiveItem(nullptr);
+        });
+    }
+
+    if (controlPanel->mapped())
+        controlPanel->setMapped(false);
+
+    topbar->setActiveItem(&topbar->indicators);
+    controlPanel->openUnder(topbar, &topbar->indicators);
+}
+
+void Firmament::closeControlPanel() noexcept
+{
+    if (controlPanel && controlPanel->mapped())
+        controlPanel->setMapped(false);
 }
 
 void Firmament::onMenuUnmapped(MenuSurface *menu) noexcept

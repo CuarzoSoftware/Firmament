@@ -15,7 +15,7 @@ std::shared_ptr<RImage> Assets::loadIcon(const std::string &icon, Int32 size) no
     std::shared_ptr<RImage> img;
 
     const auto *iconInfo { xdgkit->iconThemeManager().findIcon(
-        icon, size, 1, XDGIcon::PNG | XDGIcon::SVG, { DEFAULT_ICON_THEME, "" }) };
+        icon, size, 1, XDGIcon::PNG | XDGIcon::SVG, { DEFAULT_ICON_THEME, FALLBACK_ICON_THEME, "" }) };
 
     if (iconInfo)
     {

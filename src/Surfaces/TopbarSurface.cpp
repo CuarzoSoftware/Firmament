@@ -4,6 +4,7 @@
 #include <Nodes/TopbarItem.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
+#include <Core/Status.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/AppMenu.h>
 #include <Menus/ScaleMenu.h>
@@ -17,6 +18,18 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
 
     logo.setIcon(GetFirm()->assets.logo);
     logo.menu = GetFirm()->systemMenu->menu();
+
+    // The logo keeps its own colors in light mode, white in dark mode.
+    if (logo.icon)
+    {
+        const auto tintLogo = [this]{
+            const bool dark { logo.icon->colorScheme() == CZColorScheme::Dark };
+            logo.icon->enableReplaceImageColor(dark);
+            logo.icon->setColor(SK_ColorWHITE);
+        };
+        tintLogo();
+        logo.icon->onColorSchemeChanged.subscribe(this, [tintLogo](CZColorScheme){ tintLogo(); });
+    }
 
     vibrancy.layout().setWidthPercent(100.f);
     vibrancy.layout().setHeightPercent(100.f);
@@ -57,6 +70,11 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
         SkFontStyle::Slant::kUpright_Slant));
     clock.setText(GetFirm()->clockText());
 
+    // Status indicators (network, volume, battery), right before the clock. Pressing them opens the
+    // control panel (the icons take no input: the whole group does).
+    indicators.layout().setAlignItems(YGAlignCenter);
+    updateStatus();
+
     // Sizes depend on the screen (very wide screens get a bigger bar).
     // Bar size menu: a gear icon tinted like the text.
     sizeItem.menu = GetFirm()->scaleMenu->menu();
@@ -92,7 +110,7 @@ void TopbarSurface::updateUIScale() noexcept
     layout().setHeight(height);
     layout().setMaxHeight(height);
     layout().setMinHeight(height);
-    setExclusiveZone(Int32(height));
+    setExclusiveZone(Int32(height) + TOPBAR_WINDOW_GAP); // A small gap between the bar and maximized windows
     vibrancy.layout().setPadding(YGEdgeHorizontal, TOPBAR_SIDE_PADDING * s);
     clock.setFontSize(TOPBAR_FONT_SIZE * s);
     clock.layout().setMargin(YGEdgeHorizontal, TOPBAR_ITEM_PADDING * s);
@@ -100,6 +118,10 @@ void TopbarSurface::updateUIScale() noexcept
     logo.setUIScale(s);
     appTitle.setUIScale(s);
     sizeItem.setUIScale(s);
+    indicators.layout().setMargin(YGEdgeHorizontal, TOPBAR_ITEM_PADDING * 0.5f * s);
+
+    for (StatusIcon *icon : { &network, &volume, &battery })
+        icon->setUIScale(s);
 
     for (AKNode *child : menusArea.children())
         if (auto *item { dynamic_cast<TopbarItem*>(child) })
@@ -108,7 +130,15 @@ void TopbarSurface::updateUIScale() noexcept
     setActiveItem(nullptr);
 }
 
-void TopbarSurface::setActiveItem(TopbarItem *item) noexcept
+void TopbarSurface::updateStatus() noexcept
+{
+    const Status &status { *GetFirm()->status };
+    network.setIconName(status.networkIcon);
+    volume.setIconName(status.volumeIcon);
+    battery.setIconName(status.batteryIcon);
+}
+
+void TopbarSurface::setActiveItem(AKNode *item) noexcept
 {
     if (!item)
     {
@@ -124,6 +154,19 @@ void TopbarSurface::setActiveItem(TopbarItem *item) noexcept
 void TopbarSurface::pointerButtonEvent(const CZPointerButtonEvent &e)
 {
     MLayerSurface::pointerButtonEvent(e);
+
+    // The indicators: toggle the control panel on press (like macOS).
+    if (e.button == BTN_LEFT && e.pressed)
+    {
+        for (AKNode *n { scene().nodeAt(AKApp::Get()->pointer().pos()) }; n; n = n->parent())
+        {
+            if (n == &indicators)
+            {
+                GetFirm()->toggleControlPanel(this);
+                return;
+            }
+        }
+    }
 
     if (e.button == BTN_LEFT && scene().nodeAt(AKApp::Get()->pointer().pos()) == &vibrancy)
         GetFirm()->setActiveTopbarItem(nullptr);

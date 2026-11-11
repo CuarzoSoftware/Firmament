@@ -58,6 +58,18 @@ public:
     /// The size menu at the right end of the bar.
     std::unique_ptr<ScaleMenu> scaleMenu;
 
+    /// Network, volume and battery shown by the bars' indicators.
+    std::unique_ptr<Status> status;
+
+    /// Opens the control panel under @p topbar's indicators, or closes it if already open there.
+    void toggleControlPanel(TopbarSurface *topbar) noexcept;
+    void closeControlPanel() noexcept;
+    std::unique_ptr<ControlPanel> controlPanel;
+    UInt32 m_controlPanelClosedMs { 0 }; // When it was last hidden
+
+    /// Radios, lights, appearance and session actions (the control panel's controls).
+    std::unique_ptr<Controls> controls;
+
     /**
      * @brief The top bar clock's text, in the user's locale (LC_TIME), e.g. "Mar 10 nov. 11:52" in
      *        Spanish or "Tue Nov 10 11:52" in English.
