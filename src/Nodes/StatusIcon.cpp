@@ -42,7 +42,7 @@ void StatusIcon::setIconName(const std::string &name) noexcept
 
     m_name = name;
     auto img { name.empty() ? nullptr : Icon(name) };
-    setImage(img);
+    GetFirm()->assets.show(*this, img); // Sized for each screen's scale
     setVisible(img != nullptr);
 }
 

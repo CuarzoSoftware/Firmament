@@ -55,11 +55,9 @@ void Action::setIconName(const std::string &iconName) noexcept
     if (!img)
         return icon.reset();
 
-    if (icon)
-        icon->setImage(img);
-    else
+    if (!icon)
     {
-        icon = std::make_unique<AKImageFrame>(img);
+        icon = std::make_unique<AKImageFrame>();
         icon->layout().setWidth(MENU_ICON_SIZE * m_uiScale);
         icon->layout().setHeight(MENU_ICON_SIZE * m_uiScale);
         icon->setAlignment(CZAlignCenter);
@@ -67,6 +65,8 @@ void Action::setIconName(const std::string &iconName) noexcept
         icon->enableReplaceImageColor(true);
         icon->insertBefore(&text);
     }
+
+    GetFirm()->assets.show(*icon, img); // Sized for each screen's scale
 
     applyColors();
 }

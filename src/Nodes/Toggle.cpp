@@ -17,7 +17,7 @@ Toggle::Toggle(const std::string &text, AKNode *parent) noexcept :
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
 
-    icon.setImage(GetFirm()->assets.check);
+    GetFirm()->assets.show(icon, GetFirm()->assets.check);
     icon.setAlignment(CZAlignCenter);
     icon.setSizeMode(AKImageFrame::SizeMode::Contain);
     icon.enableReplaceImageColor(true);

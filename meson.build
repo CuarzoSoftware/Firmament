@@ -9,6 +9,17 @@ project(
     ]
 )
 
+# Images (e.g. the Cuarzo logo), installed to <prefix>/share/Firmament/Assets
+ASSETS_INSTALL_DIR = join_paths(get_option('prefix'), get_option('datadir'), 'Firmament/Assets')
+
+add_project_arguments([
+    '-DCZ_FIRMAMENT_ASSETS_DIR="@0@"'.format(ASSETS_INSTALL_DIR)
+], language: 'cpp')
+
+install_data(
+    run_command('find', './assets', '-type', 'f', '-name', '*.png', check : false).stdout().strip().split('\n'),
+    install_dir: ASSETS_INSTALL_DIR)
+
 cz_core_dep         = dependency('cz-core', fallback:['cz-core', 'cz_core_dep'])
 cz_xdgkit_dep       = dependency('cz-xdgkit', fallback:['cz-xdgkit', 'cz_xdgkit_dep'])
 cz_skia_dep         = dependency('cz-skia', fallback:['cz-skia', 'cz_skia_dep'], include_type: 'system')

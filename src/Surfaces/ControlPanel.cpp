@@ -47,7 +47,7 @@ static void SetupIcon(AKImageFrame &icon, const char *name, SkScalar size) noexc
 {
     const SkRegion empty;
     icon.setInputRegion(&empty);
-    icon.setImage(LoadIcon(name));
+    GetFirm()->assets.show(icon, LoadIcon(name));
     icon.setSizeMode(AKImageFrame::SizeMode::Contain);
     icon.setAlignment(CZAlignCenter);
     icon.enableReplaceImageColor(true);
@@ -146,8 +146,8 @@ ControlPanel::ControlPanel() noexcept
         slider->layout().setHeight(SliderHeight);
     }
 
-    m_brightness.setIcon(LoadIcon("display-brightness-symbolic"));
-    m_volume.setIcon(LoadIcon("audio-volume-high-symbolic"));
+    m_brightness.setIconProvider(GetFirm()->assets.provider(LoadIcon("display-brightness-symbolic")));
+    m_volume.setIconProvider(GetFirm()->assets.provider(LoadIcon("audio-volume-high-symbolic")));
 
     m_volume.onValueChanged.subscribe(this, [](SkScalar value){ GetFirm()->status->setVolume(value); });
     m_brightness.onValueChanged.subscribe(this, [](SkScalar value){ GetFirm()->controls->setBrightness(value); });
@@ -197,7 +197,7 @@ void ControlPanel::updateStatus() noexcept
     if (battery)
     {
         if (!status.batteryIcon.empty())
-            m_batteryIcon.setImage(LoadIcon(status.batteryIcon.c_str()));
+            GetFirm()->assets.show(m_batteryIcon, LoadIcon(status.batteryIcon.c_str()));
 
         m_batteryText.setText(std::to_string(status.batteryPercent) + " %");
     }
@@ -211,7 +211,7 @@ void ControlPanel::updateStatus() noexcept
         m_volume.setValue(status.muted ? 0.f : status.volume);
 
         if (!status.volumeIcon.empty())
-            m_volume.setIcon(LoadIcon(status.volumeIcon.c_str()));
+            m_volume.setIconProvider(GetFirm()->assets.provider(LoadIcon(status.volumeIcon.c_str())));
     }
 
     // Controls.

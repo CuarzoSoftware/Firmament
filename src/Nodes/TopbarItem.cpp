@@ -59,12 +59,14 @@ void TopbarItem::setIcon(std::shared_ptr<RImage> img) noexcept
 {
     if (!icon)
     {
-        icon.reset(new AKImageFrame(img, this));
+        icon.reset(new AKImageFrame(this));
         icon->setAlignment(CZ::CZAlignCenter);
         icon->setSizeMode(AKImageFrame::SizeMode::Contain);
         icon->layout().setHeight(TOPBAR_ICON_SIZE * m_uiScale);
         icon->layout().setWidth((TOPBAR_ICON_SIZE + 3) * m_uiScale);
     }
+
+    GetFirm()->assets.show(*icon, img); // Sized for each screen's scale
 }
 
 void TopbarItem::pointerEnterEvent(const CZPointerEnterEvent &e)
