@@ -53,6 +53,7 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
 
     setColor(CZAdaptiveColor(0));
     setExclusiveEdge(CZEdgeTop);
+    setScope("cz-firmament-topbar"); // Crystals puts it in its shell layer (above every other surface)
     setLayer(Layer::Overlay);
     setAnchor(CZEdgeLeft | CZEdgeTop | CZEdgeRight);
     requestAvailableWidth();
