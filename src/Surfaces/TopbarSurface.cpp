@@ -13,6 +13,7 @@
 
 TopbarSurface::TopbarSurface(MScreen &screen) noexcept
 {
+    setBlurMaterial(MBlurMaterial::MenuBar);
     screen.userData = this;
     setScreen(&screen);
 

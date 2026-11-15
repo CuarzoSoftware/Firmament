@@ -68,6 +68,7 @@ static void SetupText(AKText &text, SkScalar size, SkFontStyle::Weight weight, C
 
 ControlPanel::ControlPanel() noexcept
 {
+    setBlurMaterial(MBlurMaterial::Popover);
     setBorderRadius(CZBorderRadius::Make(Radius));
 
     m_root.layout().setWidth(Width);
