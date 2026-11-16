@@ -1,39 +1,50 @@
 #include <Core/Assets.h>
 #include <Core/Firmament.h>
 #include <Core/Log.h>
-#include <XDG/XDGKit.h>
-#include <Ream/RCore.h>
-#include <Ream/RDevice.h>
+#include <AssetBroker/ABCore.h>
 #include <Ream/RSurface.h>
 #include <Ream/RPass.h>
-#include <drm_fourcc.h>
 #include <cassert>
 
 std::shared_ptr<RImage> Assets::loadIcon(const std::string &icon, Int32 size) noexcept
 {
-    std::shared_ptr<RImage> img;
+    if (!m_ab || icon.empty())
+        return {};
 
-    if (const auto *iconInfo { findIcon(icon, size, 1) })
-    {
-        if (iconInfo->extensions() & XDGIcon::SVG)
-            img = loadFile(iconInfo->getPath(XDGIcon::SVG), { size, size }, icon);
+    ABIconKey key;
+    key.names = { icon };
+    key.size = size;
+    key.themes = { DEFAULT_ICON_THEME, FALLBACK_ICON_THEME, "" };
 
-        if (!img && (iconInfo->extensions() & XDGIcon::PNG))
-            img = loadFile(iconInfo->getPath(XDGIcon::PNG), { size, size }, icon);
-    }
+    auto img { m_ab->icon(key, { size, size }) };
+
+    if (img)
+        remember(img, { img, key, {} });
 
     return img;
 }
 
 void Assets::init() noexcept
 {
-    auto ream { RCore::Get() };
-    auto fmt { ream->mainDevice()->textureFormats().formats().find(DRM_FORMAT_ABGR8888) };
-    assert(fmt != ream->mainDevice()->textureFormats().formats().end());
-    safeFormat = *fmt;
+    // Icons and images: through the cz-asset-broker service if it's running (shared with other
+    // apps as DMA-bufs, looked up and rasterized once), otherwise loaded here. Local lookups reuse
+    // Firmament's XDGKit.
+    m_ab = ABCore::GetOrMake();
 
-    // Installed with Firmament (see meson.build).
-    logo = loadFile(std::filesystem::path(CZ_FIRMAMENT_ASSETS_DIR) / "Cuarzo.png", { 0, 0 });
+    if (m_ab)
+    {
+        m_ab->setXDGKit(GetFirm()->xdgkit);
+        Log(CZInfo, CZLN, "Icons from {}", m_ab->remote() ? "the asset broker service" : "this process");
+
+        // Installed with Firmament (see meson.build).
+        const auto logoPath { std::filesystem::path(CZ_FIRMAMENT_ASSETS_DIR) / "Cuarzo.png" };
+        logo = m_ab->image(logoPath);
+
+        if (logo)
+            remember(logo, { logo, {}, logoPath });
+    }
+    else
+        Log(CZError, CZLN, "Failed to create the ABCore: icons won't load");
 
     if (!logo)
         Log(CZError, CZLN, "Failed to load the logo from {} (is Firmament installed?)", CZ_FIRMAMENT_ASSETS_DIR);
@@ -65,68 +76,31 @@ void Assets::init() noexcept
 
 /* ---------------------------------- Scale specific images ---------------------------------- */
 
-const XDGIcon *Assets::findIcon(const std::string &name, Int32 size, Int32 scale) noexcept
+void Assets::remember(const std::shared_ptr<RImage> &image, Source source) noexcept
 {
-    auto *xdgkit { GetFirm()->xdgkit.get() };
-
-    if (!xdgkit || name.empty())
-        return nullptr;
-
-    return xdgkit->iconThemeManager().findIcon(
-        name, size, scale, XDGIcon::PNG | XDGIcon::SVG, { DEFAULT_ICON_THEME, FALLBACK_ICON_THEME, "" });
-}
-
-std::shared_ptr<RImage> Assets::loadFile(const std::filesystem::path &path, SkISize size, const std::string &iconName) noexcept
-{
-    auto img { RImage::LoadFile(path, safeFormat, size) };
-
-    if (img)
-    {
-        std::erase_if(m_sources, [](const auto &pair){ return pair.second.image.expired(); });
-        m_sources[img.get()] = { img, iconName, path };
-    }
-
-    return img;
+    std::erase_if(m_sources, [](const auto &pair){ return pair.second.image.expired(); });
+    m_sources[image.get()] = std::move(source);
 }
 
 std::shared_ptr<RImage> Assets::sized(const std::shared_ptr<RImage> &image, Int32 pixels, Int32 scale) noexcept
 {
-    if (!image)
-        return {};
+    CZ_UNUSED(scale) // pixels are already physical: the same artwork for every scale
+
+    if (!image || !m_ab)
+        return image;
 
     auto src { m_sources.find(image.get()) };
 
     if (src == m_sources.end() || src->second.image.expired())
         return image;
 
+    // Its larger side at that size, keeping the proportions. The same lookup (so an SVG is rendered
+    // again from the same file: other sizes of a theme may be different artwork, e.g. padded for
+    // panels). Shared and cached by the ABCore (and the service).
+    const SkISize box { std::max(1, pixels), std::max(1, pixels) };
     const Source &source { src->second };
-    scale = std::max(1, scale);
-    const std::tuple<std::string, Int32, Int32> key { source.iconName.empty() ? source.path.string() : "icon:" + source.iconName, pixels, scale };
-
-    if (auto it { m_sized.find(key) }; it != m_sized.end())
-        return it->second;
-
-    // Its larger side at that size, keeping the proportions.
-    const SkISize s { image->size() };
-    const Int32 longest { std::max(1, std::max(s.width(), s.height())) };
-    const SkISize size { std::max(1, s.width() * pixels / longest), std::max(1, s.height() * pixels / longest) };
-
-    // An SVG is rendered again at that size (the same file: other sizes of a theme may be different
-    // artwork, e.g. padded for panels). A raster themed icon: the theme's file for that size and
-    // scale (only scaled, antialiased, if the theme doesn't have that size).
-    std::filesystem::path path { source.path };
-
-    if (!source.iconName.empty() && source.path.extension() != ".svg")
-        if (const auto *icon { findIcon(source.iconName, std::max(1, (pixels + scale - 1) / scale), scale) })
-            path = icon->getPath((icon->extensions() & XDGIcon::SVG) ? XDGIcon::SVG : XDGIcon::PNG);
-
-    auto img { RImage::LoadFile(path, safeFormat, size) };
-
-    if (!img)
-        img = image;
-
-    m_sized[key] = img;
-    return img;
+    auto img { source.path.empty() ? m_ab->icon(source.key, box) : m_ab->image(source.path, box) };
+    return img ? img : image;
 }
 
 AKImageFrame::ImageProvider Assets::provider(std::shared_ptr<RImage> image) noexcept

@@ -28,6 +28,7 @@ cz_kay_dep          = dependency('cz-kay', fallback:['cz-kay', 'cz_kay_dep'])
 cz_marco_dep        = dependency('cz-marco', fallback:['cz-marco', 'cz_marco_dep'])
 cz_heaven_dep       = dependency('cz-heaven-bar', fallback:['cz-heaven', 'cz_heaven_bar_dep'])
 cz_heaven_client_dep = dependency('cz-heaven-client', fallback:['cz-heaven', 'cz_heaven_client_dep'])
+cz_asset_broker_dep = dependency('cz-asset-broker', fallback:['cz-asset-broker', 'cz_asset_broker_dep'])
 
 executable(
     'cz-firmament',
@@ -40,7 +41,8 @@ executable(
         cz_ream_dep,
         cz_kay_dep,
         cz_marco_dep,
-        cz_heaven_dep
+        cz_heaven_dep,
+        cz_asset_broker_dep
     ],
     install : true)
 

@@ -3,7 +3,7 @@
 
 #include <Core/Types.h>
 #include <Ream/RImage.h>
-#include <Ream/DRM/RDRMFormat.h>
+#include <AssetBroker/ABIconKey.h>
 #include <AK/Nodes/AKImageFrame.h>
 #include <filesystem>
 #include <map>
@@ -11,7 +11,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace CZ { class XDGIcon; }
+namespace CZ { class ABCore; }
 using namespace CZ;
 
 /**
@@ -30,6 +30,9 @@ public:
     /**
      * @brief Loads a themed icon by freedesktop name at @p size logical px (rendered at 2x).
      *
+     * Through the cz-asset-broker service if it's running (shared with other apps as DMA-bufs),
+     * otherwise loaded here.
+     *
      * @return The image, or nullptr if the icon could not be found/decoded.
      */
     std::shared_ptr<RImage> loadIcon(const std::string &icon, Int32 size) noexcept;
@@ -38,9 +41,8 @@ public:
      * @brief @p image (loaded by this class) again, at @p pixels (its larger side) for a screen with
      *        scale @p scale.
      *
-     * SVGs are rendered again at that size. Raster themed icons are looked up again for that size
-     * and scale (scaled, antialiased, only if the theme has no such size). Other files
-     * are loaded again at that size. Cached. Returns @p image itself if it's not known.
+     * Rendered again from the same file at that size (through the AssetBroker: shared with other
+     * apps if the service is running). Returns @p image itself if it's not known.
      */
     std::shared_ptr<RImage> sized(const std::shared_ptr<RImage> &image, Int32 pixels, Int32 scale) noexcept;
 
@@ -53,27 +55,24 @@ public:
     /// The provider show() uses for @p image (nullptr for nullptr).
     AKImageFrame::ImageProvider provider(std::shared_ptr<RImage> image) noexcept;
 
-    // A texture format guaranteed to be sampleable on the main device (ABGR8888).
-    RDRMFormat safeFormat { 0, {} };
-
     std::shared_ptr<RImage> logo;          ///< System (Cuarzo) logo shown at the far left.
     std::shared_ptr<RImage> divider3Patch; ///< 3-patch line used by menu dividers.
     std::shared_ptr<RImage> check;         ///< Check mark used by toggles.
     std::shared_ptr<RImage> caret;         ///< Right arrow used by submenu items.
 
 private:
-    std::shared_ptr<RImage> loadFile(const std::filesystem::path &path, SkISize size, const std::string &iconName = {}) noexcept;
-    const XDGIcon *findIcon(const std::string &name, Int32 size, Int32 scale) noexcept;
-
-    // Where each loaded image comes from (to load it at other sizes).
+    // Where each loaded image comes from (to load it at other sizes)
     struct Source
     {
         std::weak_ptr<RImage> image;
-        std::string iconName;       ///< Themed icon (looked up again per size and scale)
+        ABIconKey key;              ///< Themed icon
         std::filesystem::path path; ///< Otherwise, the file
     };
+
+    void remember(const std::shared_ptr<RImage> &image, Source source) noexcept;
+
+    std::shared_ptr<ABCore> m_ab;
     std::unordered_map<const RImage*, Source> m_sources;
-    std::map<std::tuple<std::string, Int32, Int32>, std::shared_ptr<RImage>> m_sized; // By source, size and scale
 };
 
 #endif // ASSETS_H
