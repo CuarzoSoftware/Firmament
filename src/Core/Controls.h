@@ -29,7 +29,7 @@ using namespace CZ;
  *   reset as soon as it exits). Remembered across sessions.
  * - Dark mode: the desktop's color-scheme preference (GNOME's setting, read by the XDG portal, so
  *   Marco, GTK, Qt and Chromium apps follow it).
- * - Session: lock (swaylock, or logind), suspend, restart, log out and power off (logind), and the
+ * - Session: lock (cz-doorman-lock, swaylock, or logind), suspend, restart, log out and power off (logind), and the
  *   system settings (GNOME Settings).
  *
  * States are kept in sync from D-Bus signals and rfkill events (sysfs values on refresh()), and

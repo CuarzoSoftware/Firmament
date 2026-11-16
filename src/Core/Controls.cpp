@@ -555,8 +555,11 @@ void Controls::logindCall(const char *method, bool session) noexcept
 
 void Controls::lock() noexcept
 {
-    // A session-lock client; otherwise ask logind (whatever locker listens for it).
-    if (InPath("swaylock"))
+    // Cuarzo's lock screen (cz-doorman), another session-lock client, or ask logind (whatever
+    // locker listens for it).
+    if (InPath("cz-doorman-lock"))
+        SpawnDetached({ "cz-doorman-lock" });
+    else if (InPath("swaylock"))
         SpawnDetached({ "swaylock", "-f", "-c", "000000" });
     else
         logindCall("Lock", true);
