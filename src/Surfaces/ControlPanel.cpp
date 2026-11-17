@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cmath>
 
-// Panel metrics (logical px).
+// Panel metrics (logical px). Width is the minimum: wider if the tiles' labels need it.
 static constexpr SkScalar Width { 320.f };
 static constexpr SkScalar Padding { 10.f };
 static constexpr SkScalar Gap { 10.f };
@@ -22,6 +22,8 @@ static constexpr SkScalar CardPadding { 10.f };
 static constexpr Int32 Radius { 16 };          // The panel (rounder than menus)
 static constexpr Int32 TileRadius { 9 };
 static constexpr SkScalar TileHeight { 52.f };
+static constexpr SkScalar TilePadding { 10.f };
+static constexpr SkScalar TileGap { 9.f };      // Between the badge and the texts
 static constexpr SkScalar BadgeSize { 30.f };
 static constexpr SkScalar IconSize { 16.f };
 static constexpr SkScalar ButtonSize { 30.f };
@@ -71,7 +73,7 @@ ControlPanel::ControlPanel() noexcept
     setBlurMaterial(MBlurMaterial::Popover);
     setBorderRadius(CZBorderRadius::Make(Radius));
 
-    m_root.layout().setWidth(Width);
+    m_root.layout().setMinWidth(Width); // Wider if a tile's label needs it (see below)
     m_root.layout().setPadding(YGEdgeAll, Padding);
     m_root.layout().setGap(YGGutterRow, Gap);
 
@@ -127,11 +129,23 @@ ControlPanel::ControlPanel() noexcept
     m_nightLight->onToggled = [](bool on){ GetFirm()->controls->setNightLight(on); };
     m_keyboardLight->onToggled = [](bool on){ GetFirm()->controls->setKeyboardLight(on); };
 
+    // Every tile as wide as the widest one needs (equal columns): the panel grows instead of
+    // labels going out of their tile.
+    SkScalar tileWidth { 0.f };
+
+    for (const auto &tile : m_tileNodes)
+        tileWidth = std::max(tileWidth, tile->contentWidth());
+
+    for (auto &tile : m_tileNodes)
+        tile->layout().setMinWidth(std::ceil(tileWidth));
+
     // An odd count: keep the last tile half wide.
     if (m_tileNodes.size() % 2 == 1)
     {
         auto *filler { new AKContainer(YGFlexDirectionRow, false, m_tileRows.back().get()) };
         filler->layout().setFlex(1.f);
+        filler->layout().setFlexBasis(0.f);
+        filler->layout().setMinWidth(std::ceil(tileWidth));
     }
 
     // Sliders.
@@ -286,8 +300,8 @@ ControlPanel::Tile::Tile(const std::string &title, const char *icon, AKNode *par
     layout().setHeight(TileHeight);
     layout().setFlexDirection(YGFlexDirectionRow);
     layout().setAlignItems(YGAlignCenter);
-    layout().setPadding(YGEdgeHorizontal, 10.f);
-    layout().setGap(YGGutterColumn, 9.f);
+    layout().setPadding(YGEdgeHorizontal, TilePadding);
+    layout().setGap(YGGutterColumn, TileGap);
 
     const SkRegion empty;
     m_badge.setInputRegion(&empty);
@@ -304,6 +318,27 @@ ControlPanel::Tile::Tile(const std::string &title, const char *icon, AKNode *par
     m_title.setText(title);
 
     updateColors();
+}
+
+SkScalar ControlPanel::Tile::contentWidth() const noexcept
+{
+    // Every state it may show, not just the current one: it never resizes when toggled
+    static const SkScalar stateWidth { [] {
+        AKText probe { "" };
+        SetupText(probe, 11.f, SkFontStyle::kNormal_Weight, AKTheme::SecondaryLabel);
+        SkScalar width { 0.f };
+
+        for (const char *state : { "On", "Off", "Unavailable" })
+        {
+            probe.setText(state);
+            width = std::max(width, probe.layout().width().value);
+        }
+
+        return width;
+    }() };
+
+    const SkScalar titleWidth { m_title.text().empty() ? 0.f : m_title.layout().width().value };
+    return 2.f * TilePadding + BadgeSize + TileGap + std::max(titleWidth, stateWidth);
 }
 
 void ControlPanel::Tile::setToggled(bool toggled) noexcept

@@ -50,6 +50,9 @@ public:
         /// Unavailable (e.g. no Bluetooth adapter): dimmed, clicks ignored.
         void setAvailable(bool available) noexcept;
         bool toggled() const noexcept { return m_toggled; }
+
+        /// The width its content needs: padding, badge, and its title or longest state.
+        SkScalar contentWidth() const noexcept;
         std::function<void(bool)> onToggled;
     protected:
         void pointerEnterEvent(const CZPointerEnterEvent &e) override;
