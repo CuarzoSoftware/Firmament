@@ -7,6 +7,14 @@
 #include <AK/Nodes/AKImageFrame.h>
 #include <AK/Nodes/AKText.h>
 #include <AK/Nodes/AKSlider.h>
+#include <AK/Nodes/AKFontIcon.h>
+#include <AK/Nodes/AKWiFiIcon.h>
+#include <AK/Nodes/AKActivityIndicator.h>
+#include <AK/Nodes/AKTextInput.h>
+#include <AK/Nodes/AKButton.h>
+#include <AK/Nodes/AKScroll.h>
+#include <Core/WiFi.h>
+#include <Core/CZTimer.h>
 #include <AK/Effects/AKBackgroundBoxShadowEffect.h>
 #include <Core/Types.h>
 #include <functional>
@@ -23,7 +31,10 @@ using namespace CZ;
  * screen's right edge. A rounder popup whose controls are grouped into translucent cards:
  * - Header: the battery level, and round buttons for system settings, locking the session and
  *   powering off.
- * - Toggle tiles: Wi-Fi, Bluetooth, Airplane Mode, Dark Mode, Night Shift and Keyboard Light.
+ * - Toggle tiles: Wi-Fi, Bluetooth, High Performance (off: energy
+ *   saving), Dark Mode, Night Shift and Keyboard Light.
+ * - The Wi-Fi tile's caret (at its right) shows the networks in range right under its row (a
+ *   scrollable list with a maximum height): pressing one joins it (asking for its password inline if needed). See WiFi.
  * - Sliders: display brightness and output volume.
  *
  * Only the volume slider is functional for now (see Status::setVolume()); the other controls
@@ -34,8 +45,8 @@ class ControlPanel final : public MMenu
 public:
     ControlPanel() noexcept;
 
-    /// Opens under @p anchor (the indicators) of the bar @p topbar.
-    void openUnder(TopbarSurface *topbar, AKNode *anchor) noexcept;
+    /// Opens under @p anchor (the indicators) of the bar @p topbar, grabbing with @p grab if set.
+    void openUnder(TopbarSurface *topbar, AKNode *anchor, const CZInputEvent *grab = nullptr) noexcept;
 
     /// Shows Firmament's current Status (battery, volume, Wi-Fi).
     void updateStatus() noexcept;
@@ -51,9 +62,16 @@ public:
         void setAvailable(bool available) noexcept;
         bool toggled() const noexcept { return m_toggled; }
 
-        /// The width its content needs: padding, badge, and its title or longest state.
+        /// Shows a caret at its right: pressing it calls onExpand instead of toggling.
+        void setExpandable(bool expandable) noexcept;
+
+        /// The caret points up while what it shows is shown.
+        void setExpanded(bool expanded) noexcept;
+
+        /// The width its content needs: padding, badge, its title or longest state (and caret).
         SkScalar contentWidth() const noexcept;
         std::function<void(bool)> onToggled;
+        std::function<void()> onExpand;
     protected:
         void pointerEnterEvent(const CZPointerEnterEvent &e) override;
         void pointerLeaveEvent(const CZPointerLeaveEvent &e) override;
@@ -66,7 +84,34 @@ public:
         AKContainer m_texts { YGFlexDirectionColumn, false, this };
         AKText m_title { "", &m_texts };
         AKText m_state { "", &m_texts };
+        AKFontIcon m_caret { "expand_more", 18, this };
+        bool caretHit() const noexcept;
         bool m_toggled { false }, m_hover { false }, m_pressed { false }, m_available { true };
+        bool m_expandable { false }, m_pressedCaret { false };
+    };
+
+    // A Wi-Fi network in the list (or, with setAction(), a plain text row like "Wi-Fi Settings…").
+    class NetworkRow final : public AKRoundSolidColor
+    {
+    public:
+        NetworkRow(AKNode *parent) noexcept;
+        void set(const WiFiNetwork &network, bool active, bool connecting) noexcept;
+        void setAction(const std::string &text) noexcept;
+        WiFiNetwork network;
+        std::function<void()> onClicked;
+    protected:
+        void pointerEnterEvent(const CZPointerEnterEvent &e) override;
+        void pointerLeaveEvent(const CZPointerLeaveEvent &e) override;
+        void pointerButtonEvent(const CZPointerButtonEvent &e) override;
+        void colorSchemeEvent(const CZColorSchemeEvent &e) override;
+    private:
+        void updateColors() noexcept;
+        AKWiFiIcon m_signal { 100, 16, this };
+        AKText m_name { "", this };
+        AKFontIcon m_lock { "lock", 13, this };
+        AKActivityIndicator m_spinner { 14, this };
+        AKFontIcon m_check { "check", 16, this };
+        bool m_hover { false }, m_pressed { false }, m_clickable { true };
     };
 
     // A rounded translucent white group with a soft shadow.
@@ -101,6 +146,15 @@ public:
 private:
     void refreshSize() noexcept;
 
+    // The Wi-Fi networks list
+    void setWiFiExpanded(bool expanded) noexcept;
+    void updateWiFiList() noexcept;
+    void joinNetwork(const WiFiNetwork &network) noexcept;
+    void askPassword(const WiFiNetwork &network, bool wrong) noexcept;
+    void hidePassword() noexcept;
+    void joinWithPassword() noexcept;
+    void showWiFiMessage(const std::string &message) noexcept; ///< For a few seconds
+
     /// Closes the panel, then runs @p action (e.g. locking).
     void closeAndRun(std::function<void()> action) noexcept;
 
@@ -125,8 +179,30 @@ private:
     // Toggle tiles card, two per row.
     Card m_tiles { YGFlexDirectionColumn, &m_root };
     std::vector<std::unique_ptr<AKContainer>> m_tileRows;
-    Tile *m_wifi {}, *m_bluetooth {}, *m_airplane {}, *m_darkMode {}, *m_nightLight {}, *m_keyboardLight {};
+    Tile *m_wifi {}, *m_bluetooth {}, *m_performance {}, *m_darkMode {}, *m_nightLight {}, *m_keyboardLight {};
     std::vector<std::unique_ptr<Tile>> m_tileNodes;
+
+    // Wi-Fi networks, shown by the Wi-Fi tile's caret (moved into the tiles card, under its row).
+    AKContainer m_wifiCard { YGFlexDirectionColumn, false, &m_root };
+    AKContainer m_wifiHeader { YGFlexDirectionRow, false, &m_wifiCard };
+    AKText m_wifiTitle { "Wi-Fi Networks", &m_wifiHeader };
+    AKContainer m_wifiHeaderSpacer { YGFlexDirectionRow, false, &m_wifiHeader };
+    AKActivityIndicator m_wifiSpinner { 14, &m_wifiHeader };
+    AKText m_wifiMessage { "", &m_wifiCard };   // Off, searching, or why it couldn't join
+    AKScroll m_networkScroll { &m_wifiCard };   // Up to MaxListHeight, then scrolls
+    AKContainer m_networkList { YGFlexDirectionColumn, false, &m_networkScroll };
+    AKContainer m_passwordBox { YGFlexDirectionColumn, false, &m_wifiCard };
+    AKText m_passwordLabel { "", &m_passwordBox };
+    AKContainer m_passwordRow { YGFlexDirectionRow, false, &m_passwordBox };
+    AKTextInput m_password { "Password", &m_passwordRow };
+    AKButton m_joinButton { "Join", &m_passwordRow };
+    NetworkRow m_wifiSettings { &m_wifiCard };
+    std::vector<std::unique_ptr<NetworkRow>> m_networkRows;
+    std::unique_ptr<WiFi> m_wifiBackend;         // Created the first time the list is shown
+    WiFiNetwork m_passwordNetwork;               // Asked for (m_passwordBox shown)
+    std::unique_ptr<CZTimer> m_scanTimer, m_messageTimer;
+    std::string m_message;
+    bool m_wifiExpanded { false };
 
     // Slider cards.
     Card m_displayCard { YGFlexDirectionColumn, &m_root };

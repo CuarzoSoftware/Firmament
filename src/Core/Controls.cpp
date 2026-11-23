@@ -22,6 +22,10 @@ static constexpr const char *NMPath { "/org/freedesktop/NetworkManager" };
 static constexpr const char *BlueZ { "org.bluez" };
 static constexpr const char *Login1 { "org.freedesktop.login1" };
 static constexpr const char *SessionPath { "/org/freedesktop/login1/session/auto" };
+static constexpr const char *PPD { "org.freedesktop.UPower.PowerProfiles" };     // power-profiles-daemon ≥ 0.20 (and tuned-ppd)
+static constexpr const char *PPDPath { "/org/freedesktop/UPower/PowerProfiles" };
+static constexpr const char *PPDLegacy { "net.hadess.PowerProfiles" };           // Older ones
+static constexpr const char *PPDLegacyPath { "/net/hadess/PowerProfiles" };
 
 /* ------------------------------------------ Helpers ------------------------------------------ */
 
@@ -129,6 +133,17 @@ Controls::Controls() noexcept
                     c->m_bluetoothRefresh->start(300);
                 return 0;
             }, nullptr, this);
+
+        // The power profile changed (here, by another app, or by the daemon itself).
+        const auto ppdChanged = [](sd_bus_message *, void *data, sd_bus_error *) -> int {
+            static_cast<Controls*>(data)->refreshPowerProfile();
+            return 0;
+        };
+
+        sd_bus_match_signal_async(m_system->bus(), &m_ppdMatch, PPD, PPDPath, "org.freedesktop.DBus.Properties", "PropertiesChanged",
+            ppdChanged, nullptr, this);
+        sd_bus_match_signal_async(m_system->bus(), &m_ppdLegacyMatch, PPDLegacy, PPDLegacyPath, "org.freedesktop.DBus.Properties", "PropertiesChanged",
+            ppdChanged, nullptr, this);
     }
 
     // Night Shift: on again if it was when the session ended.
@@ -152,6 +167,8 @@ Controls::~Controls() noexcept
     stopNightLight(); // Restores the colors
     sd_bus_slot_unref(m_nmMatch);
     sd_bus_slot_unref(m_bluezMatch);
+    sd_bus_slot_unref(m_ppdMatch);
+    sd_bus_slot_unref(m_ppdLegacyMatch);
 }
 
 void Controls::notify() noexcept
@@ -163,6 +180,7 @@ void Controls::refresh() noexcept
 {
     refreshWifi();
     refreshBluetooth();
+    refreshPowerProfile();
     refreshLights();
 }
 
@@ -174,7 +192,7 @@ void Controls::initRfkill() noexcept
 
     if (fd < 0)
     {
-        Log(CZWarning, CZLN, "Can't open /dev/rfkill: airplane mode unavailable");
+        Log(CZWarning, CZLN, "Can't open /dev/rfkill: Wi-Fi and Bluetooth radios can't be unblocked");
         return;
     }
 
@@ -204,10 +222,6 @@ void Controls::readRfkill() noexcept
     if (!changed)
         return;
 
-    airplaneAvailable = !m_radios.empty();
-    airplaneMode = airplaneAvailable && std::all_of(m_radios.begin(), m_radios.end(),
-        [](const auto &r){ return r.second.soft || r.second.hard; });
-
     wifiAvailable = std::any_of(m_radios.begin(), m_radios.end(), [](const auto &r){ return r.second.type == RFKILL_TYPE_WLAN; });
 
     // The adapter may come and go with its radio.
@@ -228,11 +242,6 @@ void Controls::rfkillBlock(UInt8 type, bool block) noexcept
 
     if (write(m_rfkill->fd(), &e, RFKILL_EVENT_SIZE_V1) != RFKILL_EVENT_SIZE_V1)
         Log(CZWarning, CZLN, "Failed to change the radios' block state: {}", strerror(errno));
-}
-
-void Controls::setAirplaneMode(bool enabled) noexcept
-{
-    rfkillBlock(RFKILL_TYPE_ALL, enabled);
 }
 
 /* ------------------------------------------- Wi-Fi ------------------------------------------- */
@@ -348,6 +357,108 @@ void Controls::setBluetooth(bool enabled) noexcept
 
     if (!m_bluezAdapter.empty())
         SetBoolProperty(m_system->bus(), BlueZ, m_bluezAdapter.c_str(), "org.bluez.Adapter1", "Powered", enabled);
+}
+
+/* ---------------------------------------- Power profile ---------------------------------------- */
+
+void Controls::refreshPowerProfile() noexcept
+{
+    if (!m_system)
+        return;
+
+    m_worker.run([this](sd_bus *bus) -> std::function<void()> {
+        std::string service, active;
+        bool performance { false }, powerSaver { false };
+
+        for (const auto &[name, path] : { std::pair { PPD, PPDPath }, std::pair { PPDLegacy, PPDLegacyPath } })
+        {
+            char *value {};
+
+            if (!bus || sd_bus_get_property_string(bus, name, path, name, "ActiveProfile", nullptr, &value) < 0)
+                continue;
+
+            service = name;
+            active = value;
+            free(value);
+
+            // The profiles it offers (performance needs hardware support): aa{sv} with "Profile" s.
+            sd_bus_message *reply {};
+
+            if (sd_bus_get_property(bus, name, path, name, "Profiles", nullptr, &reply, "aa{sv}") >= 0)
+            {
+                if (sd_bus_message_enter_container(reply, 'a', "a{sv}") > 0)
+                {
+                    while (sd_bus_message_enter_container(reply, 'a', "{sv}") > 0)
+                    {
+                        while (sd_bus_message_enter_container(reply, 'e', "sv") > 0)
+                        {
+                            const char *key {};
+                            sd_bus_message_read(reply, "s", &key);
+
+                            if (key && strcmp(key, "Profile") == 0 && sd_bus_message_enter_container(reply, 'v', "s") > 0)
+                            {
+                                const char *profile {};
+                                sd_bus_message_read(reply, "s", &profile);
+                                performance |= profile && strcmp(profile, "performance") == 0;
+                                powerSaver |= profile && strcmp(profile, "power-saver") == 0;
+                                sd_bus_message_exit_container(reply);
+                            }
+                            else
+                                sd_bus_message_skip(reply, "v");
+
+                            sd_bus_message_exit_container(reply);
+                        }
+
+                        sd_bus_message_exit_container(reply);
+                    }
+                }
+
+                sd_bus_message_unref(reply);
+            }
+
+            break;
+        }
+
+        return [this, service, active, performance, powerSaver]{
+            m_ppdService = service;
+
+            if (active != powerProfile || performance != performanceAvailable || powerSaver != powerSaverAvailable)
+            {
+                powerProfile = active;
+                performanceAvailable = performance;
+                powerSaverAvailable = powerSaver;
+                notify();
+            }
+        };
+    });
+}
+
+void Controls::setPowerProfile(const std::string &profile) noexcept
+{
+    if (!m_system || m_ppdService.empty() || profile == powerProfile)
+        return;
+
+    const bool legacy { m_ppdService == PPDLegacy };
+
+    // Shown right away, corrected by PropertiesChanged (or the refresh on failure).
+    powerProfile = profile;
+    notify();
+
+    sd_bus_call_method_async(m_system->bus(), nullptr, m_ppdService.c_str(), legacy ? PPDLegacyPath : PPDPath,
+        "org.freedesktop.DBus.Properties", "Set",
+        [](sd_bus_message *m, void *data, sd_bus_error *) -> int {
+            if (sd_bus_message_is_method_error(m, nullptr))
+            {
+                Log(CZWarning, CZLN, "Failed to set the power profile: {}", sd_bus_message_get_error(m)->message);
+                static_cast<Controls*>(data)->refreshPowerProfile();
+            }
+            return 0;
+        }, this, "ssv", m_ppdService.c_str(), "ActiveProfile", "s", profile.c_str());
+}
+
+void Controls::setPerformance(bool on) noexcept
+{
+    setPowerProfile(on ? "performance" : powerSaverAvailable ? "power-saver" : "balanced");
 }
 
 /* ------------------------------------------ Lights ------------------------------------------ */
@@ -574,6 +685,14 @@ void Controls::openSettings() noexcept
         SpawnDetached({ "systemsettings" });
     else
         Log(CZWarning, CZLN, "No system settings app found (gnome-control-center, systemsettings)");
+}
+
+void Controls::openWiFiSettings() noexcept
+{
+    if (InPath("cz-settings"))
+        SpawnDetached({ "cz-settings", "wifi" });
+    else
+        openSettings();
 }
 
 void Controls::suspend() noexcept  { logindCall("Suspend", false); }

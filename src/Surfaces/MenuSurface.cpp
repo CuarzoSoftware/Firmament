@@ -2,12 +2,16 @@
 #include <Core/CZWeak.h>
 #include <Core/CZTimer.h>
 #include <cmath>
+#include <algorithm>
 #include <Surfaces/TopbarSurface.h>
 #include <Models/MenuModel.h>
 #include <Nodes/MenuItemsContainer.h>
 #include <Nodes/MenuItem.h>
 #include <Nodes/SubMenu.h>
 #include <Core/Firmament.h>
+#include <Nodes/Divider.h>
+#include <Core/Events/CZKeyboardKeyEvent.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 #include <cassert>
 
 MenuSurface::MenuSurface() noexcept
@@ -15,6 +19,7 @@ MenuSurface::MenuSurface() noexcept
     m_uiScale = 0.f;
     setUIScale(1.f);
 
+    setKeyboardFocusable(true); // Gets the keys (see keyboardKeyEvent())
     menuItemOutline.layout().setPositionType(YGPositionTypeAbsolute);
     menuItemOutline.layout().setWidthPercent(100.f);
 
@@ -75,9 +80,12 @@ void MenuSurface::setActiveMenuItem(MenuItem *item) noexcept
         activeMenuItem->setHover(true);
         menuItemOutline.setOpacity(1.f); // Restore opacity when the selection moves to another item.
         menuItemOutline.insertBefore(activeMenuItem);
-        menuItemOutline.layout().setHeight(activeMenuItem->worldRect().height());
+        // Its layout's height: the menu may not have been shown yet (selected with the keyboard)
+        const SkScalar height { activeMenuItem->layout().calculatedHeight() };
+        menuItemOutline.layout().setHeight(height > 0.f ? height : SkScalar(activeMenuItem->worldRect().height()));
         menuItemOutline.layout().setPosition(YGEdgeLeft, 0.f);
         menuItemOutline.layout().setPosition(YGEdgeTop, activeMenuItem->layout().calculatedTop());
+        scrollToShow(*activeMenuItem); // Selected with the keyboard, maybe scrolled away
     }
     else
         menuItemOutline.setParent(nullptr);
@@ -153,8 +161,9 @@ void MenuSurface::setUIScale(float scale) noexcept
     menuItemOutline.setBorderRadius(CZBorderRadius::Make(Int32(std::round(4 * scale))));
 }
 
-void MenuSurface::openUnder(MSurface *parent, AKNode *anchorItem) noexcept
+void MenuSurface::openUnder(MSurface *parent, AKNode *anchorItem, const CZInputEvent *grab, bool select) noexcept
 {
+    setGrab(grab);
     // Under a top bar item: that screen's scale.
     const float scale { dynamic_cast<TopbarSurface*>(parent) ? static_cast<TopbarSurface*>(parent)->uiScale() : 1.f };
     setUIScale(scale);
@@ -167,6 +176,139 @@ void MenuSurface::openUnder(MSurface *parent, AKNode *anchorItem) noexcept
 
     refreshSize();
     setMapped(true);
+    setKeyboardFocus(true);
+
+    if (select)
+        selectFirst();
+}
+
+std::vector<MenuItem*> MenuSurface::selectableItems() const noexcept
+{
+    std::vector<MenuItem*> items;
+
+    if (!m_hostedContent)
+        return items;
+
+    for (AKNode *child : m_hostedContent->children())
+    {
+        auto *item { dynamic_cast<MenuItem*>(child) };
+
+        if (item && item->visible() && item->enabled() && !dynamic_cast<Divider*>(item))
+            items.push_back(item);
+    }
+
+    return items;
+}
+
+void MenuSurface::selectFirst() noexcept
+{
+    const auto items { selectableItems() };
+
+    if (!items.empty())
+        setActiveMenuItem(items.front());
+}
+
+void MenuSurface::keyboardKeyEvent(const CZKeyboardKeyEvent &e)
+{
+    MMenu::keyboardKeyEvent(e);
+
+    if (!e.isPressed || m_activating)
+        return;
+
+    // The keys go to the deepest menu with a selection (submenus get them through this one)
+    MenuSurface *parentMenu { nullptr };
+    MenuSurface *menu { this };
+
+    while (menu->subMenu && menu->subMenu->mapped() && menu->subMenu->activeMenuItem && !menu->subMenu->m_activating)
+    {
+        parentMenu = menu;
+        menu = menu->subMenu.get();
+    }
+
+    if (menu->m_activating)
+        return;
+
+    MenuItem *active { menu->activeMenuItem.get() };
+    auto *subMenuItem { dynamic_cast<SubMenu*>(active) };
+    const bool hasSubMenu { subMenuItem && subMenuItem->submenu && subMenuItem->enabled() };
+
+    // Into the selected item's submenu, its first item selected
+    const auto enterSubMenu = [menu, subMenuItem]{
+        menu->openSubMenu(subMenuItem);
+
+        if (menu->subMenu)
+            menu->subMenu->selectFirst();
+    };
+
+    // Back from a submenu to its item
+    const auto leaveSubMenu = [parentMenu]{
+        parentMenu->closeSubMenu();
+    };
+
+    switch (e.symbol)
+    {
+    case XKB_KEY_Down:
+    case XKB_KEY_KP_Down:
+    case XKB_KEY_Up:
+    case XKB_KEY_KP_Up:
+    {
+        const auto items { menu->selectableItems() };
+
+        if (items.empty())
+            break;
+
+        const bool down { e.symbol == XKB_KEY_Down || e.symbol == XKB_KEY_KP_Down };
+        const auto it { std::find(items.begin(), items.end(), active) };
+        size_t i;
+
+        if (it == items.end())
+            i = down ? 0 : items.size() - 1;
+        else
+            i = (size_t(it - items.begin()) + (down ? 1 : items.size() - 1)) % items.size();
+
+        menu->setActiveMenuItem(items[i]);
+        break;
+    }
+    case XKB_KEY_Right:
+    case XKB_KEY_KP_Right:
+        if (hasSubMenu)
+            enterSubMenu();
+        else
+            GetFirm()->moveActiveTopbarItem(1, &e);
+        break;
+    case XKB_KEY_Left:
+    case XKB_KEY_KP_Left:
+        if (parentMenu)
+            leaveSubMenu();
+        else
+            GetFirm()->moveActiveTopbarItem(-1, &e);
+        break;
+    case XKB_KEY_Return:
+    case XKB_KEY_KP_Enter:
+    case XKB_KEY_space:
+        if (hasSubMenu)
+            enterSubMenu();
+        else if (active && active->enabled() && !dynamic_cast<Divider*>(active))
+            Activate(*active);
+        break;
+    case XKB_KEY_Escape:
+        if (parentMenu)
+            leaveSubMenu();
+        else
+            GetFirm()->setActiveTopbarItem(nullptr);
+        break;
+    case XKB_KEY_Home:
+    case XKB_KEY_KP_Home:
+        menu->selectFirst();
+        break;
+    case XKB_KEY_End:
+    case XKB_KEY_KP_End:
+        if (const auto items { menu->selectableItems() }; !items.empty())
+            menu->setActiveMenuItem(items.back());
+        break;
+    default:
+        break;
+    }
 }
 
 void MenuSurface::openToRight(MSurface *parent, AKNode *anchorItem) noexcept
@@ -178,7 +320,7 @@ void MenuSurface::openToRight(MSurface *parent, AKNode *anchorItem) noexcept
     setParent(parent);
     setAnchor(MPopup::Anchor::TopRight);
     setGravity(MPopup::Gravity::BottomRight);
-    setConstraintAdjustment(MPopup::FlipX | MPopup::SlideY);
+    setConstraintAdjustment(MPopup::FlipX | MPopup::SlideY | MPopup::ResizeY); // Too tall: scrolls (see MMenu)
     //setOffset(0, -MENU_VPADDING);
     setAnchorRect(SkIRect::MakeXYWH(
         0, anchorItem->layout().calculatedTop(),

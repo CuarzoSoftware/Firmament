@@ -44,7 +44,14 @@ public:
     std::unique_ptr<AppActions> appActions;
 
     /// Opens @p item's popup under it (nullptr closes the open topbar menu).
-    void setActiveTopbarItem(TopbarItem *item = nullptr) noexcept;
+    /**
+     * Opens @p item's menu (nullptr closes it), grabbing the keyboard with @p grab (the pointer's
+     * last button event if not set). @p selectFirst: opened with the keyboard.
+     */
+    void setActiveTopbarItem(TopbarItem *item = nullptr, const CZInputEvent *grab = nullptr, bool selectFirst = false) noexcept;
+
+    /// The keyboard: opens the next (@p direction 1) or previous (-1) menu of the bar.
+    void moveActiveTopbarItem(int direction, const CZInputEvent *grab) noexcept;
     CZWeak<TopbarItem> activeTopbarItem;
 
     /// Size of the bar and its menus on every screen (1 = normal, see TOPBAR_SCALES).
@@ -62,7 +69,8 @@ public:
     std::unique_ptr<Status> status;
 
     /// Opens the control panel under @p topbar's indicators, or closes it if already open there.
-    void toggleControlPanel(TopbarSurface *topbar) noexcept;
+    /// @p grab: the press that opened it (keyboard focus while open, e.g. typing a Wi-Fi password).
+    void toggleControlPanel(TopbarSurface *topbar, const CZInputEvent *grab = nullptr) noexcept;
     void closeControlPanel() noexcept;
     std::unique_ptr<ControlPanel> controlPanel;
     UInt32 m_controlPanelClosedMs { 0 }; // When it was last hidden

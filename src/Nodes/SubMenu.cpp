@@ -16,11 +16,14 @@ SubMenu::SubMenu(const std::string &text, AKNode *parent) noexcept :
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
 
+    // The icons' colors are resolved per scheme (see applyColors())
+    onColorSchemeChanged.subscribe(this, [this](CZColorScheme){ applyColors(); });
+
     caret.enableReplaceImageColor(true);
     caret.setSizeMode(AKImageFrame::SizeMode::Contain);
     caret.setAlignment(CZAlignCenter);
     GetFirm()->assets.show(caret, GetFirm()->assets.caret);
-    caret.setColor(AKTheme::TertiaryLabel.light());
+    caret.setColor(AKTheme::TertiaryLabel.resolve(colorScheme()));
     applyUIScale();
 }
 
@@ -105,7 +108,7 @@ void SubMenu::applyColors() noexcept
     {
         const CZAdaptiveColor label { m_enabled ? AKTheme::Text : AKTheme::TertiaryLabel };
         text.setTextColor(label);
-        caret.setColor(AKTheme::TertiaryLabel.light());
-        if (icon) icon->setColor(label.light());
+        caret.setColor(AKTheme::TertiaryLabel.resolve(colorScheme()));
+        if (icon) icon->setColor(label.resolve(colorScheme()));
     }
 }

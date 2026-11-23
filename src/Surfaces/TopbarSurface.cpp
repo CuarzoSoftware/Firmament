@@ -164,7 +164,7 @@ void TopbarSurface::pointerButtonEvent(const CZPointerButtonEvent &e)
         {
             if (n == &indicators)
             {
-                GetFirm()->toggleControlPanel(this);
+                GetFirm()->toggleControlPanel(this, &e);
                 return;
             }
         }

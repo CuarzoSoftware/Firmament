@@ -7,6 +7,7 @@
 #include <Core/Types.h>
 #include <functional>
 #include <memory>
+#include <vector>
 
 using namespace CZ;
 
@@ -21,6 +22,11 @@ using namespace CZ;
  * shows one submenu at a time, alternating between them so that moving the pointer between items
  * swaps the visible submenu smoothly: the outgoing one is only unmapped once the incoming one is
  * about to become visible (via onWillMap / beforeMap).
+ *
+ * Keyboard (a topbar menu grabs it, its submenus get the keys through it): Up/Down select the
+ * previous/next item, Right (or Enter) opens a submenu and selects its first item, Left (or Escape)
+ * closes it, Enter/Space activate the selected item, and Left/Right on a menu with no submenu to
+ * open/close switch to the previous/next topbar menu. Escape closes the menus.
  */
 class MenuSurface final : public MMenu
 {
@@ -52,15 +58,25 @@ public:
     /// Dims the selection outline while an item is being pressed, restoring it on release.
     void setOutlinePressed(bool pressed) noexcept;
 
-    /// Opens this popup under a topbar item (parent = topbar surface).
-    void openUnder(MSurface *parent, AKNode *anchorItem) noexcept;
+    /// Opens this popup under a topbar item (parent = topbar surface), grabbing the keyboard with
+    /// @p grab (the event that opened it). @p selectFirst: opened with the keyboard.
+    void openUnder(MSurface *parent, AKNode *anchorItem, const CZInputEvent *grab = nullptr, bool selectFirst = false) noexcept;
     /// Opens this popup to the right of a submenu item (parent = the parent popup).
     void openToRight(MSurface *parent, AKNode *anchorItem) noexcept;
 
     /// Ran once, inside onWillMap, right before the popup becomes visible.
     std::function<void()> beforeMap;
 
+protected:
+    void keyboardKeyEvent(const CZKeyboardKeyEvent &e) override;
+
 private:
+    /// Its items that can be selected (not dividers, hidden or disabled ones), in order.
+    std::vector<MenuItem*> selectableItems() const noexcept;
+
+    /// Selects the first item (opening it at its submenu if it has one).
+    void selectFirst() noexcept;
+
     bool m_activating { false };
     void openSubMenu(SubMenu *item) noexcept;
     void closeSubMenu() noexcept;

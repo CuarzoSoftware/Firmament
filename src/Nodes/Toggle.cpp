@@ -17,11 +17,14 @@ Toggle::Toggle(const std::string &text, AKNode *parent) noexcept :
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
 
+    // The icon's color is resolved per scheme (see applyColors())
+    onColorSchemeChanged.subscribe(this, [this](CZColorScheme){ applyColors(); });
+
     GetFirm()->assets.show(icon, GetFirm()->assets.check);
     icon.setAlignment(CZAlignCenter);
     icon.setSizeMode(AKImageFrame::SizeMode::Contain);
     icon.enableReplaceImageColor(true);
-    icon.setColor(AKTheme::Text.light());
+    icon.setColor(AKTheme::Text.resolve(colorScheme()));
     icon.setOpacity(0.f); // Invisible until checked, but its space stays (titles keep aligned)
     applyUIScale();
 }
@@ -116,6 +119,6 @@ void Toggle::applyColors() noexcept
         const CZAdaptiveColor label { m_enabled ? AKTheme::Text : AKTheme::TertiaryLabel };
         text.setTextColor(label);
         if (shortcut) shortcut->setTextColor(AKTheme::TertiaryLabel);
-        icon.setColor(label.light());
+        icon.setColor(label.resolve(colorScheme()));
     }
 }

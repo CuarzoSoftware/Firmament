@@ -13,6 +13,8 @@
 #include <Surfaces/MenuSurface.h>
 #include <Nodes/MenuItemsContainer.h>
 #include <Nodes/TopbarItem.h>
+#include <AK/AKApp.h>
+#include <algorithm>
 #include <Nodes/MenuItem.h>
 #include <Nodes/Action.h>
 #include <Nodes/Toggle.h>
@@ -491,7 +493,7 @@ void Firmament::reRenderIfActive(HNObject *container) noexcept
 
 // --- Topbar menu opening --------------------------------------------------
 
-void Firmament::setActiveTopbarItem(TopbarItem *item) noexcept
+void Firmament::setActiveTopbarItem(TopbarItem *item, const CZInputEvent *grab, bool selectFirst) noexcept
 {
     if (item && !item->menu)
         return; // non-opening item (e.g. the app title)
@@ -522,7 +524,8 @@ void Firmament::setActiveTopbarItem(TopbarItem *item) noexcept
                 m_prevMenu->setMapped(false);
         };
 
-        next->openUnder(tb, item);
+        // The keyboard is grabbed (see MenuSurface::keyboardKeyEvent())
+        next->openUnder(tb, item, grab ? grab : &AKApp::Get()->pointer().history().button, selectFirst);
         return;
     }
 
@@ -533,7 +536,7 @@ void Firmament::setActiveTopbarItem(TopbarItem *item) noexcept
     hideTopbarOutline();
 }
 
-void Firmament::toggleControlPanel(TopbarSurface *topbar) noexcept
+void Firmament::toggleControlPanel(TopbarSurface *topbar, const CZInputEvent *grab) noexcept
 {
     if (controlPanel && controlPanel->mapped() && controlPanel->parent() == topbar)
     {
@@ -572,13 +575,47 @@ void Firmament::toggleControlPanel(TopbarSurface *topbar) noexcept
         controlPanel->setMapped(false);
 
     topbar->setActiveItem(&topbar->indicators);
-    controlPanel->openUnder(topbar, &topbar->indicators);
+    controlPanel->openUnder(topbar, &topbar->indicators, grab);
 }
 
 void Firmament::closeControlPanel() noexcept
 {
     if (controlPanel && controlPanel->mapped())
         controlPanel->setMapped(false);
+}
+
+void Firmament::moveActiveTopbarItem(int direction, const CZInputEvent *grab) noexcept
+{
+    if (!activeTopbarItem || !activeTopbarItem->scene())
+        return;
+
+    auto *tb { static_cast<TopbarSurface*>(activeTopbarItem->scene()->window()) };
+
+    if (!tb)
+        return;
+
+    // The bar's menus, left to right
+    std::vector<TopbarItem*> items;
+
+    const auto add = [&items](TopbarItem *item){
+        if (item && item->menu && item->visible())
+            items.push_back(item);
+    };
+
+    add(&tb->logo);
+
+    for (AKNode *child : tb->menusArea.children())
+        add(dynamic_cast<TopbarItem*>(child));
+
+    add(&tb->sizeItem);
+
+    const auto it { std::find(items.begin(), items.end(), activeTopbarItem.get()) };
+
+    if (it == items.end() || items.size() < 2)
+        return;
+
+    const size_t i { (size_t(it - items.begin()) + (direction > 0 ? 1 : items.size() - 1)) % items.size() };
+    setActiveTopbarItem(items[i], grab, true);
 }
 
 void Firmament::onMenuUnmapped(MenuSurface *menu) noexcept

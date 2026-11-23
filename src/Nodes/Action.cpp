@@ -17,6 +17,9 @@ Action::Action(const std::string &text, AKNode *parent) noexcept :
         SkFontStyle::Width::kNormal_Width,
         SkFontStyle::Slant::kUpright_Slant));
     spacer.layout().setFlex(10.f);
+
+    // The icon's color is resolved per scheme (see applyColors())
+    onColorSchemeChanged.subscribe(this, [this](CZColorScheme){ applyColors(); });
     applyUIScale();
 }
 
@@ -133,6 +136,6 @@ void Action::applyColors() noexcept
         const CZAdaptiveColor label { m_enabled ? AKTheme::Text : AKTheme::TertiaryLabel };
         text.setTextColor(label);
         if (shortcut) shortcut->setTextColor(AKTheme::TertiaryLabel);
-        if (icon) icon->setColor(label.light());
+        if (icon) icon->setColor(label.resolve(colorScheme()));
     }
 }
