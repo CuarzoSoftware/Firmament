@@ -695,6 +695,14 @@ void Controls::openWiFiSettings() noexcept
         openSettings();
 }
 
+void Controls::openSoundSettings() noexcept
+{
+    if (InPath("cz-settings"))
+        SpawnDetached({ "cz-settings", "sound" });
+    else
+        openSettings();
+}
+
 void Controls::suspend() noexcept  { logindCall("Suspend", false); }
 void Controls::restart() noexcept  { logindCall("Reboot", false); }
 void Controls::powerOff() noexcept { logindCall("PowerOff", false); }

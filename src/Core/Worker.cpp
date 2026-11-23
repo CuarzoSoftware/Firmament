@@ -3,6 +3,8 @@
 #include <systemd/sd-bus.h>
 #include <sys/eventfd.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
+#include <sched.h>
 #include <spawn.h>
 #include <unistd.h>
 #include <cstring>
@@ -122,6 +124,16 @@ void Worker::dispatch() noexcept
 bool SpawnDetached(std::initializer_list<const char*> args, std::initializer_list<const char*> env) noexcept
 {
     std::vector<char*> argv;
+
+    // At the normal priority even if Firmament runs with a higher one (see cuarzo-session): through
+    // nice, raising the level back to 0. Not if it was granted by RealtimeKit: reset on fork already
+    const int nice { getpriority(PRIO_PROCESS, 0) };
+    const bool resetOnFork { (sched_getscheduler(0) & SCHED_RESET_ON_FORK) != 0 };
+    const std::string increment { std::to_string(-nice) };
+
+    if (nice < 0 && !resetOnFork)
+        for (const char *a : { "nice", "-n", increment.c_str() })
+            argv.push_back(const_cast<char*>(a));
 
     for (const char *a : args)
         argv.push_back(const_cast<char*>(a));

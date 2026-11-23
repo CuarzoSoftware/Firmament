@@ -14,6 +14,9 @@
 #include <AK/Nodes/AKButton.h>
 #include <AK/Nodes/AKScroll.h>
 #include <Core/WiFi.h>
+#include <Core/Audio.h>
+#include <Core/NowPlaying.h>
+#include <AK/Nodes/AKImage.h>
 #include <Core/CZTimer.h>
 #include <AK/Effects/AKBackgroundBoxShadowEffect.h>
 #include <Core/Types.h>
@@ -35,7 +38,12 @@ using namespace CZ;
  *   saving), Dark Mode, Night Shift and Keyboard Light.
  * - The Wi-Fi tile's caret (at its right) shows the networks in range right under its row (a
  *   scrollable list with a maximum height): pressing one joins it (asking for its password inline if needed). See WiFi.
- * - Sliders: display brightness and output volume.
+ * - Sliders: display brightness, output volume and microphone level. The sound ones end with a
+ *   button opening a menu: Advanced Settings… (System Settings' Sound pane), then the outputs
+ *   (inputs) to choose from, and the channels of multichannel ones (pairs for outputs, single
+ *   ones for inputs), see Audio.
+ * - Now Playing (when a media player is there, see NowPlaying): the artwork, title and artist
+ *   (clicking them brings the player up) and previous / play-pause / next.
  *
  * Only the volume slider is functional for now (see Status::setVolume()); the other controls
  * just show their look (toggles toggle, the brightness slider slides).
@@ -131,6 +139,7 @@ public:
     {
     public:
         RoundButton(const char *icon, AKNode *parent) noexcept;
+        void setIcon(const char *icon) noexcept;
         std::function<void()> onClicked;
     protected:
         void pointerEnterEvent(const CZPointerEnterEvent &e) override;
@@ -143,8 +152,29 @@ public:
         bool m_hover { false }, m_pressed { false };
     };
 
+    // Clickable area (the Now Playing artwork and texts)
+    class ClickArea final : public AKContainer
+    {
+    public:
+        ClickArea(YGFlexDirection direction, AKNode *parent) noexcept : AKContainer(direction, false, parent) {}
+        std::function<void()> onClicked;
+    protected:
+        void pointerButtonEvent(const CZPointerButtonEvent &e) override;
+    private:
+        bool m_pressed { false };
+    };
+
 private:
     void refreshSize() noexcept;
+
+    /// The Now Playing card (see NowPlaying).
+    void updateNowPlaying() noexcept;
+
+    // Audio (output / input)
+    void updateAudio() noexcept;
+
+    /// The menu of the outputs (inputs) and their channels, under its button.
+    void openAudioMenu(bool input) noexcept;
 
     // The Wi-Fi networks list
     void setWiFiExpanded(bool expanded) noexcept;
@@ -210,7 +240,31 @@ private:
     AKSlider m_brightness { &m_displayCard };
     Card m_soundCard { YGFlexDirectionColumn, &m_root };
     AKText m_soundLabel { "Sound", &m_soundCard };
-    AKSlider m_volume { &m_soundCard };
+    AKContainer m_volumeRow { YGFlexDirectionRow, false, &m_soundCard };
+    AKSlider m_volume { &m_volumeRow };
+    RoundButton m_outputButton { "pan-down-symbolic", &m_volumeRow };
+    Card m_micCard { YGFlexDirectionColumn, &m_root };
+    AKText m_micLabel { "Microphone", &m_micCard };
+    AKContainer m_micRow { YGFlexDirectionRow, false, &m_micCard };
+    AKSlider m_micVolume { &m_micRow };
+    RoundButton m_inputButton { "pan-down-symbolic", &m_micRow };
+    std::unique_ptr<Audio> m_audio;
+    std::unique_ptr<MMenu> m_audioMenu; // Child popup, see openAudioMenu()
+
+    // Now Playing card: [artwork][title / artist][previous play next]
+    Card m_nowCard { YGFlexDirectionRow, &m_root };
+    ClickArea m_nowInfo { YGFlexDirectionRow, &m_nowCard };
+    AKRoundSolidColor m_artFrame { 0, CZBorderRadius::Make(8), &m_nowInfo };
+    AKImageFrame m_artPlaceholder { &m_artFrame };
+    AKImage m_artwork { &m_artFrame };
+    AKContainer m_nowTexts { YGFlexDirectionColumn, false, &m_nowInfo };
+    AKText m_nowTitle { "", &m_nowTexts };
+    AKText m_nowArtist { "", &m_nowTexts };
+    RoundButton m_previous { "media-skip-backward-symbolic", &m_nowCard };
+    RoundButton m_playPause { "media-playback-start-symbolic", &m_nowCard };
+    RoundButton m_next { "media-skip-forward-symbolic", &m_nowCard };
+    std::unique_ptr<NowPlaying> m_nowPlaying;
+    std::string m_artworkPath;   // Shown
 };
 
 #endif // CONTROLPANEL_H

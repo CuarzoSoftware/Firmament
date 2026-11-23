@@ -10,6 +10,13 @@
 #include <Core/Events/CZPointerButtonEvent.h>
 #include <linux/input-event-codes.h>
 #include <AK/AKApp.h>
+#include <CZ/Ream/RCore.h>
+#include <CZ/Ream/RDevice.h>
+#include <CZ/Ream/RImage.h>
+#include <CZ/skia/core/SkBitmap.h>
+#include <CZ/skia/core/SkCanvas.h>
+#include <CZ/skia/core/SkRRect.h>
+#include <drm_fourcc.h>
 #include <algorithm>
 #include <cmath>
 
@@ -43,23 +50,74 @@ static const CZAdaptiveColor CardShadowColor { 0x1F000000, 0x47000000 };
 static const CZAdaptiveColor TileColor { 0x00000000, 0x00000000 }; // Tiles: on their card
 static const CZAdaptiveColor TileHoverColor { 0x38000000, 0x40FFFFFF };
 static const CZAdaptiveColor TilePressedColor { 0x52000000, 0x5CFFFFFF };
-static const CZAdaptiveColor ButtonColor { 0x12000000, 0x1AFFFFFF };
-static const CZAdaptiveColor ButtonHoverColor { 0x1C000000, 0x26FFFFFF };
-static const CZAdaptiveColor ButtonPressedColor { 0x29000000, 0x33FFFFFF };
 static const CZAdaptiveColor BadgeOffColor { 0x1F000000, 0x2EFFFFFF };
-static const CZAdaptiveColor RowHoverColor { 0x14000000, 0x1FFFFFFF };
-static const CZAdaptiveColor RowPressedColor { 0x24000000, 0x33FFFFFF };
 
 // Long names cut (with an ellipsis): the panel keeps its width.
-static std::string ShortName(const std::string &name) noexcept
+static std::string ShortName(const std::string &name, size_t max = MaxSsidChars) noexcept
 {
     size_t chars { 0 }, i { 0 };
 
     for (; i < name.size(); i++)
-        if ((name[i] & 0xC0) != 0x80 && chars++ == MaxSsidChars)
+        if ((name[i] & 0xC0) != 0x80 && chars++ == max)
             return name.substr(0, i) + "…";
 
     return name;
+}
+
+static constexpr SkScalar ArtworkSize { 46.f };
+static constexpr size_t MaxNowPlayingChars { 24 };
+
+// A rounded square (white, antialiased, on transparent) of @p size pixels: the artwork's mask, drawn
+// on the CPU at the size it's shown at (see AKAvatar).
+static std::shared_ptr<RImage> RoundedMask(Int32 size, SkScalar radius) noexcept
+{
+    auto ream { RCore::Get() };
+
+    if (!ream || !ream->mainDevice() || size <= 0)
+        return {};
+
+    const auto &formats { ream->mainDevice()->textureFormats().formats() };
+    const auto format { formats.find(DRM_FORMAT_ABGR8888) };
+
+    if (format == formats.end())
+        return {};
+
+    SkBitmap bitmap;
+
+    if (!bitmap.tryAllocPixels(SkImageInfo::Make(size, size, kRGBA_8888_SkColorType, kPremul_SkAlphaType)))
+        return {};
+
+    {
+        SkCanvas c { bitmap };
+        c.clear(SK_ColorTRANSPARENT);
+        SkPaint paint;
+        paint.setAntiAlias(true);
+        paint.setColor(SK_ColorWHITE);
+        c.drawRRect(SkRRect::MakeRectXY(SkRect::MakeWH(size, size), radius, radius), paint);
+    }
+
+    RPixelBufferInfo info {};
+    info.pixels = static_cast<UInt8*>(bitmap.getPixels());
+    info.stride = UInt32(bitmap.rowBytes());
+    info.format = format->format();
+    info.size = SkISize::Make(size, size);
+    return RImage::MakeFromPixels(info, *format);
+}
+
+// The picture at @p path, or nullptr
+static std::shared_ptr<RImage> LoadPicture(const std::string &path) noexcept
+{
+    auto ream { RCore::Get() };
+
+    if (path.empty() || !ream || !ream->mainDevice())
+        return {};
+
+    const auto &formats { ream->mainDevice()->textureFormats().formats() };
+
+    if (auto fmt { formats.find(DRM_FORMAT_ARGB8888) }; fmt != formats.end())
+        return RImage::LoadFile(path, *fmt);
+
+    return {};
 }
 
 static std::shared_ptr<RImage> LoadIcon(const char *name) noexcept
@@ -233,17 +291,100 @@ ControlPanel::ControlPanel() noexcept
     });
 
     // Sliders.
-    for (Card *card : { &m_displayCard, &m_soundCard })
+    for (Card *card : { &m_displayCard, &m_soundCard, &m_micCard })
         card->layout().setGap(YGGutterRow, 8.f);
 
-    for (AKText *label : { &m_displayLabel, &m_soundLabel })
+    for (AKText *label : { &m_displayLabel, &m_soundLabel, &m_micLabel })
         SetupText(*label, 12.f, SkFontStyle::kSemiBold_Weight, AKTheme::Label);
 
-    for (AKSlider *slider : { &m_brightness, &m_volume })
+    m_brightness.layout().setWidthPercent(100.f);
+    m_brightness.layout().setHeight(SliderHeight);
+
+    // Volume sliders: their device button at the end, the list (hidden) below
+    for (AKContainer *row : { &m_volumeRow, &m_micRow })
     {
-        slider->layout().setWidthPercent(100.f);
+        row->layout().setAlignItems(YGAlignCenter);
+        row->layout().setGap(YGGutterColumn, 8.f);
+    }
+
+    for (AKSlider *slider : { &m_volume, &m_micVolume })
+    {
+        slider->layout().setFlex(1.f);
         slider->layout().setHeight(SliderHeight);
     }
+
+    for (RoundButton *button : { &m_outputButton, &m_inputButton })
+    {
+        button->layout().setWidth(SliderHeight + 2.f);
+        button->layout().setHeight(SliderHeight + 2.f);
+        button->setBorderRadius(CZBorderRadius::Make(Int32(SliderHeight / 2 + 1)));
+    }
+
+    m_outputButton.onClicked = [this]{ openAudioMenu(false); };
+    m_inputButton.onClicked = [this]{ openAudioMenu(true); };
+    m_micVolume.setIconProvider(GetFirm()->assets.provider(LoadIcon("microphone-sensitivity-high-symbolic")));
+    m_micVolume.onValueChanged.subscribe(this, [this](SkScalar value){
+        if (m_audio)
+            m_audio->setVolume(true, value);
+    });
+
+    // Now Playing (hidden without a player)
+    m_nowCard.setVisible(false);
+    m_nowCard.layout().setAlignItems(YGAlignCenter);
+    m_nowCard.layout().setGap(YGGutterColumn, 6.f);
+    m_nowInfo.layout().setFlex(1.f);
+    m_nowInfo.layout().setAlignItems(YGAlignCenter);
+    m_nowInfo.layout().setGap(YGGutterColumn, 10.f);
+    m_nowInfo.layout().setMinWidth(0.f);
+    m_artFrame.layout().setWidth(ArtworkSize);
+    m_artFrame.layout().setHeight(ArtworkSize);
+    m_artFrame.layout().setJustifyContent(YGJustifyCenter);
+    m_artFrame.layout().setAlignItems(YGAlignCenter);
+    SetupIcon(m_artPlaceholder, "audio-x-generic-symbolic", 22.f);
+    {
+        const SkRegion empty;
+        m_artFrame.setInputRegion(&empty);
+        m_artwork.setInputRegion(&empty);
+        m_nowTexts.setInputRegion(&empty);
+    }
+    m_artwork.layout().setPositionType(YGPositionTypeAbsolute);
+    m_artwork.layout().setPosition(YGEdgeLeft, 0.f);
+    m_artwork.layout().setPosition(YGEdgeTop, 0.f);
+    m_artwork.layout().setWidthPercent(100.f);
+    m_artwork.layout().setHeightPercent(100.f);
+    m_artwork.setSrcRectMode(AKImage::SrcRectMode::Custom);
+    m_artwork.setVisible(false);
+    m_nowTexts.layout().setFlex(1.f);
+    m_nowTexts.layout().setGap(YGGutterRow, 2.f);
+    SetupText(m_nowTitle, 13.f, SkFontStyle::kSemiBold_Weight, AKTheme::Label);
+    SetupText(m_nowArtist, 11.f, SkFontStyle::kNormal_Weight, AKTheme::SecondaryLabel);
+
+    for (RoundButton *button : { &m_previous, &m_playPause, &m_next })
+    {
+        button->layout().setWidth(28.f);
+        button->layout().setHeight(28.f);
+        button->setBorderRadius(CZBorderRadius::Make(14));
+    }
+
+    m_nowPlaying = std::make_unique<NowPlaying>();
+    m_nowPlaying->onChanged.subscribe(this, [this]{ updateNowPlaying(); });
+    m_previous.onClicked = [this]{ m_nowPlaying->previous(); };
+    m_playPause.onClicked = [this]{ m_nowPlaying->playPause(); };
+    m_next.onClicked = [this]{ m_nowPlaying->next(); };
+    m_nowInfo.onClicked = [this]{
+        if (m_nowPlaying->state().canRaise)
+            closeAndRun([this]{ m_nowPlaying->raise(); });
+    };
+    updateNowPlaying();
+
+    m_audio = std::make_unique<Audio>();
+    m_audio->onChanged.subscribe(this, [this]{ updateAudio(); });
+    updateAudio();
+
+    onMappedChanged.subscribe(this, [this]{
+        if (!mapped() && m_audioMenu)
+            m_audioMenu->setMapped(false);
+    });
 
     m_brightness.setIconProvider(GetFirm()->assets.provider(LoadIcon("display-brightness-symbolic")));
     m_volume.setIconProvider(GetFirm()->assets.provider(LoadIcon("audio-volume-high-symbolic")));
@@ -304,8 +445,7 @@ void ControlPanel::updateStatus() noexcept
     }
 
     // Volume (not while being dragged, see AKSlider::setValue()).
-    m_volume.setVisible(status.volume >= 0.f);
-    m_soundLabel.setVisible(status.volume >= 0.f);
+    m_soundCard.setVisible(status.volume >= 0.f);
 
     if (status.volume >= 0.f)
     {
@@ -376,6 +516,145 @@ void ControlPanel::setPowerOptionsVisible(bool visible) noexcept
     // Grow/shrink the popup to its content.
     if (mapped())
         refreshSize();
+}
+
+/* ------------------------------------------- Audio ------------------------------------------- */
+
+void ControlPanel::updateAudio() noexcept
+{
+    const AudioState &s { m_audio->state() };
+
+    // The microphone: hidden without one
+    const bool mic { s.input.valid && s.input.volume >= 0.f };
+    m_micCard.setVisible(mic);
+
+    if (mic)
+    {
+        const float v { s.input.muted ? 0.f : s.input.volume };
+        m_micVolume.setValue(v);
+        m_micVolume.setIconProvider(GetFirm()->assets.provider(LoadIcon(
+            v <= 0.f ? "microphone-sensitivity-muted-symbolic" : v < 0.34f ? "microphone-sensitivity-low-symbolic" :
+            v < 0.67f ? "microphone-sensitivity-medium-symbolic" : "microphone-sensitivity-high-symbolic")));
+    }
+
+    m_outputButton.setVisible(s.available);
+    m_inputButton.setVisible(s.available);
+
+    if (mapped())
+        refreshSize();
+}
+
+void ControlPanel::openAudioMenu(bool input) noexcept
+{
+    if (!m_audioMenu)
+        m_audioMenu = std::make_unique<MMenu>();
+
+    MMenu &menu { *m_audioMenu };
+    menu.setMapped(false);
+    menu.clear();
+
+    menu.addAction("Advanced Settings…", [this]{ closeAndRun([]{ GetFirm()->controls->openSoundSettings(); }); });
+    menu.addDivider();
+
+    const AudioState &s { m_audio->state() };
+    const AudioSelection &sel { input ? s.input : s.output };
+    const auto &devices { input ? s.inputs : s.outputs };
+
+    if (devices.empty())
+        menu.addAction(input ? "No Inputs" : "No Outputs", {}, false);
+
+    for (const AudioDevice &d : devices)
+    {
+        const bool current { sel.device == d.name };
+        menu.addAction(d.displayName, [this, input, name = d.name]{ m_audio->select(input, name); })
+            .setChecked(current && sel.channels.empty());
+
+        // Multichannel: pairs of outputs (1+2, 3+4...), single inputs, indented under it
+        const UInt32 n { UInt32(d.channels.size()) };
+
+        if ((!input && n > 2) || (input && n > 1))
+        {
+            for (UInt32 c = 0; c < n; c += input ? 1 : 2)
+            {
+                std::vector<UInt32> channels { c };
+
+                if (!input && c + 1 < n)
+                    channels.push_back(c + 1);
+
+                MMenuAction &action { menu.addAction(AudioState::ChannelsName(input, channels),
+                    [this, input, name = d.name, channels]{ m_audio->select(input, name, channels); }) };
+                action.setChecked(current && sel.channels == channels);
+                action.text.layout().setMargin(YGEdgeLeft, 14.f);
+            }
+        }
+    }
+
+    // A child of the panel, grabbing the keyboard from it (the click that opened it, if any)
+    const auto &click { AKApp::Get()->pointer().history().button };
+    menu.popup(input ? m_inputButton : m_outputButton, click.serial ? &click : nullptr);
+}
+
+/* ---------------------------------------- Now Playing ---------------------------------------- */
+
+void ControlPanel::updateNowPlaying() noexcept
+{
+    const NowPlaying::State &s { m_nowPlaying->state() };
+    const bool shown { s.available && (!s.title.empty() || !s.identity.empty()) };
+    m_nowCard.setVisible(shown);
+
+    if (shown)
+    {
+        m_nowTitle.setText(ShortName(s.title.empty() ? s.identity : s.title, MaxNowPlayingChars));
+        m_nowArtist.setText(ShortName(s.artist.empty() ? (s.title.empty() ? "" : s.identity) : s.artist, MaxNowPlayingChars));
+        m_nowArtist.setVisible(!m_nowArtist.text().empty());
+        m_playPause.setIcon(s.playing ? "media-playback-pause-symbolic" : "media-playback-start-symbolic");
+        m_previous.setOpacity(s.canPrevious ? 1.f : 0.35f);
+        m_next.setOpacity(s.canNext ? 1.f : 0.35f);
+        m_playPause.setOpacity(s.canPlayPause ? 1.f : 0.35f);
+
+        // The artwork (its centered square), or the placeholder
+        if (s.artwork != m_artworkPath)
+        {
+            m_artworkPath = s.artwork;
+            auto picture { LoadPicture(m_artworkPath) };
+            m_artwork.setImage(picture);
+            m_artwork.setVisible(picture != nullptr);
+            m_artPlaceholder.setVisible(picture == nullptr);
+
+            if (picture)
+            {
+                const SkISize size { picture->size() };
+                const Int32 side { std::min(size.width(), size.height()) };
+                m_artwork.setCustomSrcRectScale(1.f);
+                m_artwork.setCustomSrcRect(SkRect::MakeXYWH((size.width() - side) / 2.f, (size.height() - side) / 2.f, side, side));
+                const Int32 px { Int32(ArtworkSize) * std::max(1, scale()) };
+                m_artwork.setMask(RoundedMask(px, 8.f * std::max(1, scale())));
+            }
+        }
+
+        m_artFrame.setBackgroundColor(AKTheme::ControlFill.resolve(colorScheme()));
+    }
+
+    if (mapped())
+        refreshSize();
+}
+
+void ControlPanel::ClickArea::pointerButtonEvent(const CZPointerButtonEvent &e)
+{
+    AKContainer::pointerButtonEvent(e);
+
+    if (e.button != BTN_LEFT)
+        return;
+
+    if (e.pressed)
+        m_pressed = true;
+    else if (m_pressed)
+    {
+        m_pressed = false;
+
+        if (onClicked)
+            onClicked();
+    }
 }
 
 /* ---------------------------------------- Wi-Fi list ---------------------------------------- */
@@ -632,8 +911,8 @@ void ControlPanel::NetworkRow::updateColors() noexcept
 {
     const CZColorScheme scheme { colorScheme() };
     const bool hover { m_clickable && m_hover };
-    setBackgroundColor(m_clickable && m_pressed ? RowPressedColor.resolve(scheme) :
-                       hover ? RowHoverColor.resolve(scheme) : SK_ColorTRANSPARENT);
+    setBackgroundColor(m_clickable && m_pressed ? AKTheme::ControlPressedFill.resolve(scheme) :
+                       hover ? AKTheme::ControlHoverFill.resolve(scheme) : SK_ColorTRANSPARENT);
 
     const SkColor label { AKTheme::Label.resolve(scheme) };
     m_lock.setColor(AKTheme::SecondaryLabel.resolve(scheme));
@@ -886,10 +1165,15 @@ ControlPanel::RoundButton::RoundButton(const char *icon, AKNode *parent) noexcep
     updateColors();
 }
 
+void ControlPanel::RoundButton::setIcon(const char *icon) noexcept
+{
+    GetFirm()->assets.show(m_icon, LoadIcon(icon));
+}
+
 void ControlPanel::RoundButton::updateColors() noexcept
 {
     const CZColorScheme scheme { colorScheme() };
-    setBackgroundColor((m_pressed ? ButtonPressedColor : m_hover ? ButtonHoverColor : ButtonColor).resolve(scheme));
+    setBackgroundColor((m_pressed ? AKTheme::ControlPressedFill : m_hover ? AKTheme::ControlHoverFill : AKTheme::ControlFill).resolve(scheme));
     m_icon.setColor(AKTheme::Label.resolve(scheme));
 }
 

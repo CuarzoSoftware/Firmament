@@ -64,6 +64,7 @@ public:
     void lock() noexcept;
     void openSettings() noexcept;
     void openWiFiSettings() noexcept; ///< System Settings' Wi-Fi pane (or openSettings())
+    void openSoundSettings() noexcept; ///< System Settings' Sound pane (or openSettings())
     void suspend() noexcept;
     void restart() noexcept;
     void logOut() noexcept;
