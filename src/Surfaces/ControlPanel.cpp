@@ -672,7 +672,7 @@ void ControlPanel::setWiFiExpanded(bool expanded) noexcept
     {
         if (!m_wifiBackend)
         {
-            m_wifiBackend = std::make_unique<WiFi>();
+            m_wifiBackend = std::make_unique<SWiFi>();
             m_wifiBackend->onChanged.subscribe(this, [this]{ updateWiFiList(); });
             m_wifiBackend->onJoinFailed.subscribe(this, [this](const std::string &ssid, bool wrongPassword){
                 if (wrongPassword)
@@ -716,18 +716,18 @@ void ControlPanel::updateWiFiList() noexcept
     if (!m_wifiBackend || !m_wifiExpanded)
         return;
 
-    const WiFiState &s { m_wifiBackend->state() };
+    const SWiFiState &s { m_wifiBackend->state() };
     const bool on { s.available && s.enabled };
 
     // The one it's connected to first, then the known ones, then by strength.
-    std::vector<const WiFiNetwork*> networks;
+    std::vector<const SWiFiNetwork*> networks;
 
     if (on)
         for (const auto &n : s.networks)
             if (!n.ssid.empty())
                 networks.push_back(&n);
 
-    std::stable_sort(networks.begin(), networks.end(), [&s](const WiFiNetwork *a, const WiFiNetwork *b){
+    std::stable_sort(networks.begin(), networks.end(), [&s](const SWiFiNetwork *a, const SWiFiNetwork *b){
         const bool aActive { a->ssid == s.activeSsid }, bActive { b->ssid == s.activeSsid };
         if (aActive != bActive) return aActive;
         if (a->known() != b->known()) return a->known();
@@ -747,7 +747,7 @@ void ControlPanel::updateWiFiList() noexcept
         row->onClicked = [this, raw]{ joinNetwork(raw->network); };
     }
 
-    const bool connecting { s.link == WiFiState::Link::Connecting };
+    const bool connecting { s.link == SWiFiState::Link::Connecting };
 
     for (size_t i = 0; i < networks.size(); i++)
     {
@@ -787,7 +787,7 @@ void ControlPanel::updateWiFiList() noexcept
         refreshSize();
 }
 
-void ControlPanel::joinNetwork(const WiFiNetwork &network) noexcept
+void ControlPanel::joinNetwork(const SWiFiNetwork &network) noexcept
 {
     if (!m_wifiBackend || network.ssid == m_wifiBackend->state().activeSsid)
         return;
@@ -810,7 +810,7 @@ void ControlPanel::joinNetwork(const WiFiNetwork &network) noexcept
     m_wifiBackend->join(network);
 }
 
-void ControlPanel::askPassword(const WiFiNetwork &network, bool wrong) noexcept
+void ControlPanel::askPassword(const SWiFiNetwork &network, bool wrong) noexcept
 {
     m_passwordNetwork = network;
     m_passwordLabel.setText(wrong ?
@@ -845,7 +845,7 @@ void ControlPanel::joinWithPassword() noexcept
     if (!m_wifiBackend || m_password.text().size() < 8)
         return;
 
-    const WiFiNetwork network { m_passwordNetwork };
+    const SWiFiNetwork network { m_passwordNetwork };
     const std::string password { m_password.text() };
     hidePassword();
     m_message.clear();
@@ -882,7 +882,7 @@ ControlPanel::NetworkRow::NetworkRow(AKNode *parent) noexcept :
     updateColors();
 }
 
-void ControlPanel::NetworkRow::set(const WiFiNetwork &n, bool active, bool connecting) noexcept
+void ControlPanel::NetworkRow::set(const SWiFiNetwork &n, bool active, bool connecting) noexcept
 {
     network = n;
     m_name.setText(ShortName(n.ssid));

@@ -13,7 +13,7 @@
 #include <AK/Nodes/AKTextInput.h>
 #include <AK/Nodes/AKButton.h>
 #include <AK/Nodes/AKScroll.h>
-#include <Core/WiFi.h>
+#include <CZ/Services/SWiFi.h>
 #include <Core/Audio.h>
 #include <Core/NowPlaying.h>
 #include <AK/Nodes/AKImage.h>
@@ -37,7 +37,7 @@ using namespace CZ;
  * - Toggle tiles: Wi-Fi, Bluetooth, High Performance (off: energy
  *   saving), Dark Mode, Night Shift and Keyboard Light.
  * - The Wi-Fi tile's caret (at its right) shows the networks in range right under its row (a
- *   scrollable list with a maximum height): pressing one joins it (asking for its password inline if needed). See WiFi.
+ *   scrollable list with a maximum height): pressing one joins it (asking for its password inline if needed). See SWiFi.
  * - Sliders: display brightness, output volume and microphone level. The sound ones end with a
  *   button opening a menu: Advanced Settings… (System Settings' Sound pane), then the outputs
  *   (inputs) to choose from, and the channels of multichannel ones (pairs for outputs, single
@@ -103,9 +103,9 @@ public:
     {
     public:
         NetworkRow(AKNode *parent) noexcept;
-        void set(const WiFiNetwork &network, bool active, bool connecting) noexcept;
+        void set(const SWiFiNetwork &network, bool active, bool connecting) noexcept;
         void setAction(const std::string &text) noexcept;
-        WiFiNetwork network;
+        SWiFiNetwork network;
         std::function<void()> onClicked;
     protected:
         void pointerEnterEvent(const CZPointerEnterEvent &e) override;
@@ -179,8 +179,8 @@ private:
     // The Wi-Fi networks list
     void setWiFiExpanded(bool expanded) noexcept;
     void updateWiFiList() noexcept;
-    void joinNetwork(const WiFiNetwork &network) noexcept;
-    void askPassword(const WiFiNetwork &network, bool wrong) noexcept;
+    void joinNetwork(const SWiFiNetwork &network) noexcept;
+    void askPassword(const SWiFiNetwork &network, bool wrong) noexcept;
     void hidePassword() noexcept;
     void joinWithPassword() noexcept;
     void showWiFiMessage(const std::string &message) noexcept; ///< For a few seconds
@@ -228,8 +228,8 @@ private:
     AKButton m_joinButton { "Join", &m_passwordRow };
     NetworkRow m_wifiSettings { &m_wifiCard };
     std::vector<std::unique_ptr<NetworkRow>> m_networkRows;
-    std::unique_ptr<WiFi> m_wifiBackend;         // Created the first time the list is shown
-    WiFiNetwork m_passwordNetwork;               // Asked for (m_passwordBox shown)
+    std::unique_ptr<SWiFi> m_wifiBackend;         // Created the first time the list is shown
+    SWiFiNetwork m_passwordNetwork;               // Asked for (m_passwordBox shown)
     std::unique_ptr<CZTimer> m_scanTimer, m_messageTimer;
     std::string m_message;
     bool m_wifiExpanded { false };
