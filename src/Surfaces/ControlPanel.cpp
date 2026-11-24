@@ -377,7 +377,8 @@ ControlPanel::ControlPanel() noexcept
     };
     updateNowPlaying();
 
-    m_audio = std::make_unique<Audio>();
+    m_audio = std::make_unique<SAudio>();
+    m_audio->restoreChannels(); // The session's shell: the channels chosen last time
     m_audio->onChanged.subscribe(this, [this]{ updateAudio(); });
     updateAudio();
 
@@ -522,7 +523,7 @@ void ControlPanel::setPowerOptionsVisible(bool visible) noexcept
 
 void ControlPanel::updateAudio() noexcept
 {
-    const AudioState &s { m_audio->state() };
+    const SAudioState &s { m_audio->state() };
 
     // The microphone: hidden without one
     const bool mic { s.input.valid && s.input.volume >= 0.f };
@@ -556,14 +557,14 @@ void ControlPanel::openAudioMenu(bool input) noexcept
     menu.addAction("Advanced Settings…", [this]{ closeAndRun([]{ GetFirm()->controls->openSoundSettings(); }); });
     menu.addDivider();
 
-    const AudioState &s { m_audio->state() };
-    const AudioSelection &sel { input ? s.input : s.output };
+    const SAudioState &s { m_audio->state() };
+    const SAudioSelection &sel { input ? s.input : s.output };
     const auto &devices { input ? s.inputs : s.outputs };
 
     if (devices.empty())
         menu.addAction(input ? "No Inputs" : "No Outputs", {}, false);
 
-    for (const AudioDevice &d : devices)
+    for (const SAudioDevice &d : devices)
     {
         const bool current { sel.device == d.name };
         menu.addAction(d.displayName, [this, input, name = d.name]{ m_audio->select(input, name); })
@@ -581,7 +582,7 @@ void ControlPanel::openAudioMenu(bool input) noexcept
                 if (!input && c + 1 < n)
                     channels.push_back(c + 1);
 
-                MMenuAction &action { menu.addAction(AudioState::ChannelsName(input, channels),
+                MMenuAction &action { menu.addAction(SAudioState::ChannelsName(input, channels),
                     [this, input, name = d.name, channels]{ m_audio->select(input, name, channels); }) };
                 action.setChecked(current && sel.channels == channels);
                 action.text.layout().setMargin(YGEdgeLeft, 14.f);

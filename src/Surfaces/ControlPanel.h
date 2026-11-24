@@ -14,7 +14,7 @@
 #include <AK/Nodes/AKButton.h>
 #include <AK/Nodes/AKScroll.h>
 #include <CZ/Services/SWiFi.h>
-#include <Core/Audio.h>
+#include <CZ/Services/SAudio.h>
 #include <Core/NowPlaying.h>
 #include <AK/Nodes/AKImage.h>
 #include <Core/CZTimer.h>
@@ -41,7 +41,7 @@ using namespace CZ;
  * - Sliders: display brightness, output volume and microphone level. The sound ones end with a
  *   button opening a menu: Advanced Settings… (System Settings' Sound pane), then the outputs
  *   (inputs) to choose from, and the channels of multichannel ones (pairs for outputs, single
- *   ones for inputs), see Audio.
+ *   ones for inputs), see SAudio.
  * - Now Playing (when a media player is there, see NowPlaying): the artwork, title and artist
  *   (clicking them brings the player up) and previous / play-pause / next.
  *
@@ -248,7 +248,7 @@ private:
     AKContainer m_micRow { YGFlexDirectionRow, false, &m_micCard };
     AKSlider m_micVolume { &m_micRow };
     RoundButton m_inputButton { "pan-down-symbolic", &m_micRow };
-    std::unique_ptr<Audio> m_audio;
+    std::unique_ptr<SAudio> m_audio;
     std::unique_ptr<MMenu> m_audioMenu; // Child popup, see openAudioMenu()
 
     // Now Playing card: [artwork][title / artist][previous play next]
