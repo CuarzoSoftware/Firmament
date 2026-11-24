@@ -24,7 +24,7 @@
 #include <Core/Notifications.h>
 #include <CZ/Core/CZBus.h>
 #include <systemd/sd-bus.h>
-#include <Core/Status.h>
+#include <CZ/Services/SStatus.h>
 #include <Surfaces/ControlPanel.h>
 #include <Core/Controls.h>
 #include <Core/CZTime.h>
@@ -134,7 +134,7 @@ Firmament::Firmament() noexcept
     m_activeSource = &deskMenus->topbar; // Desk by default
 
     // Before the bars (they show it).
-    status = std::make_unique<Status>();
+    status = std::make_unique<SStatus>();
     status->onChanged.subscribe(this, [this]{
         Log(CZDebug, CZLN, "Status: {}, {}, {}", status->networkInfo, status->volumeInfo, status->batteryInfo);
 

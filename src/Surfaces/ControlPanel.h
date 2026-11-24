@@ -15,7 +15,7 @@
 #include <AK/Nodes/AKScroll.h>
 #include <CZ/Services/SWiFi.h>
 #include <CZ/Services/SAudio.h>
-#include <Core/NowPlaying.h>
+#include <CZ/Services/SNowPlaying.h>
 #include <AK/Nodes/AKImage.h>
 #include <Core/CZTimer.h>
 #include <AK/Effects/AKBackgroundBoxShadowEffect.h>
@@ -42,10 +42,10 @@ using namespace CZ;
  *   button opening a menu: Advanced Settings… (System Settings' Sound pane), then the outputs
  *   (inputs) to choose from, and the channels of multichannel ones (pairs for outputs, single
  *   ones for inputs), see SAudio.
- * - Now Playing (when a media player is there, see NowPlaying): the artwork, title and artist
+ * - Now Playing (when a media player is there, see SNowPlaying): the artwork, title and artist
  *   (clicking them brings the player up) and previous / play-pause / next.
  *
- * Only the volume slider is functional for now (see Status::setVolume()); the other controls
+ * Only the volume slider is functional for now (see SStatus::setVolume()); the other controls
  * just show their look (toggles toggle, the brightness slider slides).
  */
 class ControlPanel final : public MMenu
@@ -56,7 +56,7 @@ public:
     /// Opens under @p anchor (the indicators) of the bar @p topbar, grabbing with @p grab if set.
     void openUnder(TopbarSurface *topbar, AKNode *anchor, const CZInputEvent *grab = nullptr) noexcept;
 
-    /// Shows Firmament's current Status (battery, volume, Wi-Fi).
+    /// Shows Firmament's current status (battery, volume, Wi-Fi, see SStatus).
     void updateStatus() noexcept;
 
     // A rounded tile with a round icon badge, a title and its state (On / Off).
@@ -167,7 +167,7 @@ public:
 private:
     void refreshSize() noexcept;
 
-    /// The Now Playing card (see NowPlaying).
+    /// The Now Playing card (see SNowPlaying).
     void updateNowPlaying() noexcept;
 
     // Audio (output / input)
@@ -263,7 +263,7 @@ private:
     RoundButton m_previous { "media-skip-backward-symbolic", &m_nowCard };
     RoundButton m_playPause { "media-playback-start-symbolic", &m_nowCard };
     RoundButton m_next { "media-skip-forward-symbolic", &m_nowCard };
-    std::unique_ptr<NowPlaying> m_nowPlaying;
+    std::unique_ptr<SNowPlaying> m_nowPlaying;
     std::string m_artworkPath;   // Shown
 };
 

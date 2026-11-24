@@ -3,6 +3,7 @@
 
 #include <Core/Types.h>
 #include <Core/Assets.h>
+#include <CZ/Services/Services.h>
 #include <XDG/XDGKit.h>
 #include <Marco/MApp.h>
 #include <Heaven/Bar/HNBar.h>
@@ -70,7 +71,7 @@ public:
     std::unique_ptr<Notifications> notifications;
 
     /// Network, volume and battery shown by the bars' indicators.
-    std::unique_ptr<Status> status;
+    std::unique_ptr<SStatus> status;
 
     /// Opens the control panel under @p topbar's indicators, or closes it if already open there.
     /// @p grab: the press that opened it (keyboard focus while open, e.g. typing a Wi-Fi password).

@@ -4,7 +4,7 @@
 #include <Nodes/TopbarItem.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
-#include <Core/Status.h>
+#include <CZ/Services/SStatus.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/AppMenu.h>
 #include <Core/Notifications.h>
@@ -116,7 +116,7 @@ void TopbarSurface::updateUIScale() noexcept
 
 void TopbarSurface::updateStatus() noexcept
 {
-    const Status &status { *GetFirm()->status };
+    const SStatus &status { *GetFirm()->status };
     network.setIconName(status.networkIcon);
     volume.setIconName(status.volumeIcon);
     battery.setIconName(status.batteryIcon);

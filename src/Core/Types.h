@@ -37,7 +37,6 @@ constexpr float ITEM_FONT_SIZE { 12.f };
 // Core
 class Firmament;
 class Assets;
-class Status;
 class ControlPanel;
 class Controls;
 class Notifications;

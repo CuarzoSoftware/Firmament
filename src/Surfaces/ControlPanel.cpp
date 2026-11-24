@@ -2,7 +2,7 @@
 #include <Surfaces/TopbarSurface.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
-#include <Core/Status.h>
+#include <CZ/Services/SStatus.h>
 #include <Core/Controls.h>
 #include <Core/CZTimer.h>
 #include <Marco/MApp.h>
@@ -366,7 +366,7 @@ ControlPanel::ControlPanel() noexcept
         button->setBorderRadius(CZBorderRadius::Make(14));
     }
 
-    m_nowPlaying = std::make_unique<NowPlaying>();
+    m_nowPlaying = std::make_unique<SNowPlaying>();
     m_nowPlaying->onChanged.subscribe(this, [this]{ updateNowPlaying(); });
     m_previous.onClicked = [this]{ m_nowPlaying->previous(); };
     m_playPause.onClicked = [this]{ m_nowPlaying->playPause(); };
@@ -430,7 +430,7 @@ void ControlPanel::refreshSize() noexcept
 
 void ControlPanel::updateStatus() noexcept
 {
-    const Status &status { *GetFirm()->status };
+    const SStatus &status { *GetFirm()->status };
 
     // Battery: its icon and level.
     const bool battery { status.batteryPercent >= 0 };
@@ -599,7 +599,7 @@ void ControlPanel::openAudioMenu(bool input) noexcept
 
 void ControlPanel::updateNowPlaying() noexcept
 {
-    const NowPlaying::State &s { m_nowPlaying->state() };
+    const SNowPlaying::State &s { m_nowPlaying->state() };
     const bool shown { s.available && (!s.title.empty() || !s.identity.empty()) };
     m_nowCard.setVisible(shown);
 
