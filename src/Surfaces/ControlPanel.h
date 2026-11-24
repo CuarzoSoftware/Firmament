@@ -228,7 +228,7 @@ private:
     AKButton m_joinButton { "Join", &m_passwordRow };
     NetworkRow m_wifiSettings { &m_wifiCard };
     std::vector<std::unique_ptr<NetworkRow>> m_networkRows;
-    std::unique_ptr<SWiFi> m_wifiBackend;         // Created the first time the list is shown
+    std::shared_ptr<SWiFi> m_wifiBackend;         // Created the first time the list is shown
     SWiFiNetwork m_passwordNetwork;               // Asked for (m_passwordBox shown)
     std::unique_ptr<CZTimer> m_scanTimer, m_messageTimer;
     std::string m_message;
@@ -248,7 +248,7 @@ private:
     AKContainer m_micRow { YGFlexDirectionRow, false, &m_micCard };
     AKSlider m_micVolume { &m_micRow };
     RoundButton m_inputButton { "pan-down-symbolic", &m_micRow };
-    std::unique_ptr<SAudio> m_audio;
+    std::shared_ptr<SAudio> m_audio;
     std::unique_ptr<MMenu> m_audioMenu; // Child popup, see openAudioMenu()
 
     // Now Playing card: [artwork][title / artist][previous play next]
@@ -263,7 +263,7 @@ private:
     RoundButton m_previous { "media-skip-backward-symbolic", &m_nowCard };
     RoundButton m_playPause { "media-playback-start-symbolic", &m_nowCard };
     RoundButton m_next { "media-skip-forward-symbolic", &m_nowCard };
-    std::unique_ptr<SNowPlaying> m_nowPlaying;
+    std::shared_ptr<SNowPlaying> m_nowPlaying;
     std::string m_artworkPath;   // Shown
 };
 

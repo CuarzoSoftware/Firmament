@@ -366,7 +366,7 @@ ControlPanel::ControlPanel() noexcept
         button->setBorderRadius(CZBorderRadius::Make(14));
     }
 
-    m_nowPlaying = std::make_unique<SNowPlaying>();
+    m_nowPlaying = SNowPlaying::GetOrMake();
     m_nowPlaying->onChanged.subscribe(this, [this]{ updateNowPlaying(); });
     m_previous.onClicked = [this]{ m_nowPlaying->previous(); };
     m_playPause.onClicked = [this]{ m_nowPlaying->playPause(); };
@@ -377,7 +377,7 @@ ControlPanel::ControlPanel() noexcept
     };
     updateNowPlaying();
 
-    m_audio = std::make_unique<SAudio>();
+    m_audio = SAudio::GetOrMake();
     m_audio->restoreChannels(); // The session's shell: the channels chosen last time
     m_audio->onChanged.subscribe(this, [this]{ updateAudio(); });
     updateAudio();
@@ -673,7 +673,7 @@ void ControlPanel::setWiFiExpanded(bool expanded) noexcept
     {
         if (!m_wifiBackend)
         {
-            m_wifiBackend = std::make_unique<SWiFi>();
+            m_wifiBackend = SWiFi::GetOrMake();
             m_wifiBackend->onChanged.subscribe(this, [this]{ updateWiFiList(); });
             m_wifiBackend->onJoinFailed.subscribe(this, [this](const std::string &ssid, bool wrongPassword){
                 if (wrongPassword)

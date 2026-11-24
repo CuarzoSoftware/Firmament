@@ -39,7 +39,6 @@ class Firmament;
 class Assets;
 class ControlPanel;
 class Controls;
-class Notifications;
 
 // Surfaces — custom Marco surfaces.
 class TopbarSurface;

@@ -67,11 +67,11 @@ public:
     /// initBus(). Values not in TOPBAR_SCALES are rounded to the closest one.
     void setUIScale(float scale) noexcept;
 
-    /// The notifications daemon (Gazette), for the bars' notifications button.
-    std::unique_ptr<Notifications> notifications;
+    /// Gazette (the notifications daemon), for the bars' notifications button.
+    std::shared_ptr<SNotifications> notifications;
 
     /// Network, volume and battery shown by the bars' indicators.
-    std::unique_ptr<SStatus> status;
+    std::shared_ptr<SStatus> status;
 
     /// Opens the control panel under @p topbar's indicators, or closes it if already open there.
     /// @p grab: the press that opened it (keyboard focus while open, e.g. typing a Wi-Fi password).
