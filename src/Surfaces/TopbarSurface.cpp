@@ -7,7 +7,7 @@
 #include <CZ/Services/SStatus.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/AppMenu.h>
-#include <CZ/Services/SNotifications.h>
+#include <CZ/Services/SNotificationsClient.h>
 #include <AK/AKTheme.h>
 #include <AK/Nodes/AKImageFrame.h>
 
@@ -124,7 +124,7 @@ void TopbarSurface::updateStatus() noexcept
 
 void TopbarSurface::updateNotifications() noexcept
 {
-    const SNotifications &n { *GetFirm()->notifications };
+    const SNotificationsClient &n { *GetFirm()->notifications };
     notificationsItem.setVisible(n.available());
 
     const std::string icon { n.doNotDisturb() ? "notifications-disabled-symbolic" : "notifications-symbolic" };

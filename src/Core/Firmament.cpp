@@ -21,7 +21,7 @@
 #include <Nodes/Divider.h>
 #include <Nodes/SubMenu.h>
 #include <Menus/SystemMenu.h>
-#include <CZ/Services/SNotifications.h>
+#include <CZ/Services/SNotificationsClient.h>
 #include <CZ/Core/CZBus.h>
 #include <systemd/sd-bus.h>
 #include <CZ/Services/SStatus.h>
@@ -159,7 +159,7 @@ Firmament::Firmament() noexcept
     });
 
     // Before the bars (they show its button)
-    notifications = SNotifications::GetOrMake();
+    notifications = SNotificationsClient::GetOrMake();
     notifications->onChanged.subscribe(this, [this]{
         for (MScreen *s : marco->screens())
             if (auto *tb { static_cast<TopbarSurface*>(s->userData) })

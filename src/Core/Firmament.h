@@ -68,7 +68,7 @@ public:
     void setUIScale(float scale) noexcept;
 
     /// Gazette (the notifications daemon), for the bars' notifications button.
-    std::shared_ptr<SNotifications> notifications;
+    std::shared_ptr<SNotificationsClient> notifications;
 
     /// Network, volume and battery shown by the bars' indicators.
     std::shared_ptr<SStatus> status;
