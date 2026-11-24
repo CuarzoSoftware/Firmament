@@ -9,6 +9,9 @@
 #include <Core/CZTimer.h>
 #include <memory>
 
+struct sd_bus_slot;
+namespace CZ { class CZBus; }
+
 using namespace CZ;
 using namespace CZ::HNBarAPI;
 
@@ -54,16 +57,17 @@ public:
     void moveActiveTopbarItem(int direction, const CZInputEvent *grab) noexcept;
     CZWeak<TopbarItem> activeTopbarItem;
 
-    /// Size of the bar and its menus on every screen (1 = normal, see TOPBAR_SCALES).
+    /// Size of the bar and its menus on every screen (1 = normal, ×1.2 by default, see TOPBAR_SCALES).
     float uiScale() const noexcept { return m_uiScale; }
 
     /// Resizes the bar and menus on every screen and saves the choice in
     /// `$XDG_CONFIG_HOME/cz-firmament/firmament.conf` (read by Desk too, to keep its icons clear of
-    /// the bar).
+    /// the bar). Also through D-Bus: org.cuarzo.Firmament.SetBarScale(d) (e.g. by Settings), see
+    /// initBus(). Values not in TOPBAR_SCALES are rounded to the closest one.
     void setUIScale(float scale) noexcept;
 
-    /// The size menu at the right end of the bar.
-    std::unique_ptr<ScaleMenu> scaleMenu;
+    /// The notifications daemon (Gazette), for the bars' notifications button.
+    std::unique_ptr<Notifications> notifications;
 
     /// Network, volume and battery shown by the bars' indicators.
     std::unique_ptr<Status> status;
@@ -103,7 +107,12 @@ private:
     void scheduleClock() noexcept;
     void loadSettings() noexcept;
     void saveSettings() noexcept;
-    float m_uiScale { 1.f };
+    float m_uiScale { TOPBAR_DEFAULT_SCALE };
+
+    /// org.cuarzo.Firmament at /org/cuarzo/Firmament (user bus): SetBarScale(d), GetBarScale() → d.
+    void initBus() noexcept;
+    std::shared_ptr<CZBus> m_bus;
+    sd_bus_slot *m_busSlot {};
     std::unique_ptr<CZTimer> m_clockTimer;
 
     void initScreens() noexcept;

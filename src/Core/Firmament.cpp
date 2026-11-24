@@ -21,7 +21,9 @@
 #include <Nodes/Divider.h>
 #include <Nodes/SubMenu.h>
 #include <Menus/SystemMenu.h>
-#include <Menus/ScaleMenu.h>
+#include <Core/Notifications.h>
+#include <CZ/Core/CZBus.h>
+#include <systemd/sd-bus.h>
 #include <Core/Status.h>
 #include <Surfaces/ControlPanel.h>
 #include <Core/Controls.h>
@@ -29,6 +31,7 @@
 #include <XDG/XDGINI.h>
 #include <filesystem>
 #include <cmath>
+#include <cstring>
 #include <Menus/DeskMenus.h>
 #include <Menus/AppMenu.h>
 #include <Menus/NativeMenus.h>
@@ -124,8 +127,6 @@ Firmament::Firmament() noexcept
 
     loadSettings();
     systemMenu = std::make_unique<SystemMenu>();
-    scaleMenu = std::make_unique<ScaleMenu>();
-    scaleMenu->update();
     deskMenus = std::make_unique<DeskMenus>();
     appMenu = std::make_unique<AppMenu>();
     nativeMenus = std::make_unique<NativeMenus>();
@@ -157,14 +158,26 @@ Firmament::Firmament() noexcept
             controlPanel->updateStatus();
     });
 
+    // Before the bars (they show its button)
+    notifications = std::make_unique<Notifications>();
+    notifications->onChanged.subscribe(this, [this]{
+        for (MScreen *s : marco->screens())
+            if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
+                tb->updateNotifications();
+    });
+
     initScreens();
     initHeaven();
+    initBus();
 
     m_clockTimer = std::make_unique<CZTimer>([this](CZTimer *){ updateClock(); scheduleClock(); });
     scheduleClock();
 }
 
-Firmament::~Firmament() noexcept {}
+Firmament::~Firmament() noexcept
+{
+    sd_bus_slot_unref(m_busSlot);
+}
 
 // --------------------------------------------------------------------------
 // Clock
@@ -226,19 +239,64 @@ void Firmament::saveSettings() noexcept
 
 void Firmament::setUIScale(float scale) noexcept
 {
+    // The closest supported one
+    float closest { TOPBAR_SCALES[0] };
+
+    for (const float s : TOPBAR_SCALES)
+        if (std::fabs(s - scale) < std::fabs(closest - scale))
+            closest = s;
+
+    scale = closest;
+
     if (scale == m_uiScale)
         return;
 
     m_uiScale = scale;
     saveSettings();
     setActiveTopbarItem(nullptr);
-    scaleMenu->update();
 
     for (MScreen *s : marco->screens())
         if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
             tb->updateUIScale();
 }
 
+
+static int SetBarScaleMethod(sd_bus_message *m, void *, sd_bus_error *)
+{
+    double scale { 0.0 };
+
+    if (int r = sd_bus_message_read(m, "d", &scale); r < 0)
+        return r;
+
+    GetFirm()->setUIScale(float(scale));
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int GetBarScaleMethod(sd_bus_message *m, void *, sd_bus_error *)
+{
+    return sd_bus_reply_method_return(m, "d", double(GetFirm()->uiScale()));
+}
+
+static const sd_bus_vtable FirmamentVTable[]
+{
+    SD_BUS_VTABLE_START(0),
+    SD_BUS_METHOD("SetBarScale", "d", "", SetBarScaleMethod, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("GetBarScale", "", "d", GetBarScaleMethod, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_VTABLE_END
+};
+
+void Firmament::initBus() noexcept
+{
+    m_bus = CZBus::GetOrMakeUser();
+
+    if (!m_bus)
+        return;
+
+    sd_bus_add_object_vtable(m_bus->bus(), &m_busSlot, "/org/cuarzo/Firmament", "org.cuarzo.Firmament", FirmamentVTable, nullptr);
+
+    if (int r = sd_bus_request_name(m_bus->bus(), "org.cuarzo.Firmament", 0); r < 0)
+        Log(CZError, CZLN, "Couldn't own org.cuarzo.Firmament: {}", strerror(-r));
+}
 
 std::string Firmament::clockText() const noexcept
 {
@@ -607,7 +665,6 @@ void Firmament::moveActiveTopbarItem(int direction, const CZInputEvent *grab) no
     for (AKNode *child : tb->menusArea.children())
         add(dynamic_cast<TopbarItem*>(child));
 
-    add(&tb->sizeItem);
 
     const auto it { std::find(items.begin(), items.end(), activeTopbarItem.get()) };
 

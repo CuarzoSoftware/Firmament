@@ -17,6 +17,7 @@ constexpr float TOPBAR_OUTLINE_PADDING { (TOPBAR_ITEM_PADDING + 1) * 0.5f };
 // very wide screens). Every size above/below is multiplied by Firmament::uiScale().
 constexpr float TOPBAR_SCALES[] { 1.f, 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.75f, 2.f };
 constexpr float TOPBAR_MAX_SCALE { 2.f };
+constexpr float TOPBAR_DEFAULT_SCALE { 1.2f }; // Until one is chosen (see Firmament::setUIScale())
 constexpr float TOPBAR_SIDE_PADDING { 12.f };
 
 constexpr float MENU_MIN_WIDTH { 200.f };
@@ -39,6 +40,7 @@ class Assets;
 class Status;
 class ControlPanel;
 class Controls;
+class Notifications;
 
 // Surfaces — custom Marco surfaces.
 class TopbarSurface;
@@ -60,7 +62,6 @@ class MenuModel;
 // Menus — built-in (non-Heaven) menu definitions.
 class MenuBuilder;
 class SystemMenu;
-class ScaleMenu;
 class DeskMenus;
 class AppMenu;
 class NativeMenus;

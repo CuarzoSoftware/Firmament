@@ -7,11 +7,11 @@
 #include <Core/Status.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/AppMenu.h>
-#include <Menus/ScaleMenu.h>
+#include <Core/Notifications.h>
 #include <AK/AKTheme.h>
 #include <AK/Nodes/AKImageFrame.h>
 
-TopbarSurface::TopbarSurface(MScreen &screen) noexcept
+TopbarSurface::TopbarSurface(MScreen &screen) noexcept : m_screen(screen)
 {
     setBlurMaterial(MBlurMaterial::MenuBar);
     screen.userData = this;
@@ -77,26 +77,8 @@ TopbarSurface::TopbarSurface(MScreen &screen) noexcept
     indicators.layout().setAlignItems(YGAlignCenter);
     updateStatus();
 
-    // Sizes depend on the screen (very wide screens get a bigger bar).
-    // Bar size menu: a gear icon tinted like the text.
-    sizeItem.menu = GetFirm()->scaleMenu->menu();
-
-    for (const char *name : { "emblem-system-symbolic", "preferences-system-symbolic", "settings-symbolic" })
-        if (auto img { GetFirm()->assets.loadIcon(name, Int32(TOPBAR_ICON_SIZE * 2 * TOPBAR_MAX_SCALE)) })
-        {
-            sizeItem.setIcon(img);
-            break;
-        }
-
-    if (sizeItem.icon)
-    {
-        sizeItem.icon->enableReplaceImageColor(true);
-        const auto tint = [this]{ sizeItem.icon->setColor(AKTheme::Text.resolve(sizeItem.icon->colorScheme())); };
-        tint();
-        sizeItem.icon->onColorSchemeChanged.subscribe(this, [tint](CZColorScheme){ tint(); });
-    }
-    else
-        sizeItem.setText("\u2699"); // No icon in the theme: ⚙
+    // Notifications button (Gazette's notification center), tinted like the text
+    updateNotifications();
     updateUIScale();
 }
 
@@ -119,7 +101,7 @@ void TopbarSurface::updateUIScale() noexcept
     outline.setBorderRadius(CZBorderRadius::Make(Int32(std::round(4 * s))));
     logo.setUIScale(s);
     appTitle.setUIScale(s);
-    sizeItem.setUIScale(s);
+    notificationsItem.setUIScale(s);
     indicators.layout().setMargin(YGEdgeHorizontal, TOPBAR_ITEM_PADDING * 0.5f * s);
 
     for (StatusIcon *icon : { &network, &volume, &battery })
@@ -138,6 +120,44 @@ void TopbarSurface::updateStatus() noexcept
     network.setIconName(status.networkIcon);
     volume.setIconName(status.volumeIcon);
     battery.setIconName(status.batteryIcon);
+}
+
+void TopbarSurface::updateNotifications() noexcept
+{
+    const Notifications &n { *GetFirm()->notifications };
+    notificationsItem.setVisible(n.available());
+
+    const std::string icon { n.doNotDisturb() ? "notifications-disabled-symbolic" : "notifications-symbolic" };
+
+    if (icon != m_notificationsIcon)
+    {
+        m_notificationsIcon = icon;
+
+        for (const char *name : { icon.c_str(), n.doNotDisturb() ? "notification-disabled-symbolic" : "notification-symbolic" })
+        {
+            if (auto img { GetFirm()->assets.loadIcon(name, Int32(TOPBAR_ICON_SIZE * 2 * TOPBAR_MAX_SCALE)) })
+            {
+                notificationsItem.setIcon(img);
+                break;
+            }
+        }
+
+        if (notificationsItem.icon)
+        {
+            notificationsItem.icon->enableReplaceImageColor(true);
+            const auto tint = [this]{ notificationsItem.icon->setColor(AKTheme::Text.resolve(notificationsItem.icon->colorScheme())); };
+            tint();
+            notificationsItem.icon->onColorSchemeChanged.subscribe(this, [tint](CZColorScheme){ tint(); });
+        }
+
+        notificationsItem.setUIScale(m_uiScale > 0.f ? m_uiScale : GetFirm()->uiScale());
+    }
+
+    // Outlined while its center is open (on this screen or another one: Gazette doesn't say)
+    if (n.centerShown() && notificationsItem.visible())
+        setActiveItem(&notificationsItem); // Again: its icon may have changed
+    else if (!GetFirm()->activeTopbarItem && outline.visible())
+        setActiveItem(nullptr);
 }
 
 void TopbarSurface::setActiveItem(AKNode *item) noexcept
@@ -165,6 +185,15 @@ void TopbarSurface::pointerButtonEvent(const CZPointerButtonEvent &e)
             if (n == &indicators)
             {
                 GetFirm()->toggleControlPanel(this, &e);
+                return;
+            }
+
+            // The notifications button: Gazette's center, on this screen
+            if (n == &notificationsItem)
+            {
+                GetFirm()->setActiveTopbarItem(nullptr);
+                GetFirm()->closeControlPanel();
+                GetFirm()->notifications->toggleCenter(m_screen.props().name);
                 return;
             }
         }

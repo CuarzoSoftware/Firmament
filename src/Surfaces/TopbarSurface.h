@@ -36,6 +36,10 @@ public:
     /// Shows Firmament's current Status in the indicators.
     void updateStatus() noexcept;
 
+    /// Shows the notifications button if Gazette is running, its icon (Do Not Disturb) and whether
+    /// its center is shown (outlined, on this bar's screen).
+    void updateNotifications() noexcept;
+
     MVibrancyView vibrancy { this };
     TopbarItem logo { &vibrancy };     ///< Opens the system menu.
     TopbarItem appTitle { &vibrancy };  ///< Active application name (bold, non-interactive).
@@ -47,12 +51,14 @@ public:
     StatusIcon volume { &indicators };  ///< Output volume
     StatusIcon battery { &indicators }; ///< Battery level and charging state
     AKText clock { "", &vibrancy };    ///< Date and time (see Firmament::clockText())
-    TopbarItem sizeItem { &vibrancy }; ///< Bar size menu (gear icon), right corner
+    TopbarItem notificationsItem { &vibrancy }; ///< Toggles the notification center (Gazette), right corner
 
     void pointerButtonEvent(const CZPointerButtonEvent &e) override;
 
 private:
+    MScreen &m_screen;
     float m_uiScale { 0.f };
+    std::string m_notificationsIcon;
 };
 
 #endif // TOPBARSURFACE_H
