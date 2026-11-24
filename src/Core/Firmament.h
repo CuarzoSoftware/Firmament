@@ -73,6 +73,9 @@ public:
     /// Network, volume and battery shown by the bars' indicators.
     std::shared_ptr<SStatus> status;
 
+    /// Low and critical battery notifications.
+    std::unique_ptr<BatteryAlerts> batteryAlerts;
+
     /// Opens the control panel under @p topbar's indicators, or closes it if already open there.
     /// @p grab: the press that opened it (keyboard focus while open, e.g. typing a Wi-Fi password).
     void toggleControlPanel(TopbarSurface *topbar, const CZInputEvent *grab = nullptr) noexcept;

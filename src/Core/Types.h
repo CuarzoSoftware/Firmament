@@ -38,6 +38,7 @@ constexpr float ITEM_FONT_SIZE { 12.f };
 class Firmament;
 class Assets;
 class ControlPanel;
+class BatteryAlerts;
 class Controls;
 
 // Surfaces — custom Marco surfaces.

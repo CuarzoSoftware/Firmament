@@ -25,6 +25,7 @@
 #include <CZ/Core/CZBus.h>
 #include <systemd/sd-bus.h>
 #include <CZ/Services/SStatus.h>
+#include <Core/BatteryAlerts.h>
 #include <Surfaces/ControlPanel.h>
 #include <Core/Controls.h>
 #include <Core/CZTime.h>
@@ -165,6 +166,8 @@ Firmament::Firmament() noexcept
             if (auto *tb { static_cast<TopbarSurface*>(s->userData) })
                 tb->updateNotifications();
     });
+
+    batteryAlerts = std::make_unique<BatteryAlerts>();
 
     initScreens();
     initHeaven();
