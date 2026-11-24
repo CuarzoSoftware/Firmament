@@ -1,13 +1,13 @@
 #include <Core/BatteryAlerts.h>
 #include <Core/Log.h>
-#include <CZ/Services/SNotificationsClient.h>
+#include <CZ/Services/SVNotificationsClient.h>
 
-using Warning = SStatus::BatteryWarning;
+using Warning = SVStatus::BatteryWarning;
 
 BatteryAlerts::BatteryAlerts() noexcept
 {
-    m_status = SStatus::GetOrMake();
-    m_notifications = SNotificationsClient::GetOrMake();
+    m_status = SVStatus::GetOrMake();
+    m_notifications = SVNotificationsClient::GetOrMake();
     m_status->onChanged.subscribe(this, [this]{ update(); });
 
     // Not sent because no daemon was running yet (e.g. at login, before Gazette): now
@@ -17,7 +17,7 @@ BatteryAlerts::BatteryAlerts() noexcept
     });
 
     // Dismissed by the user: shown again only after the next charge (or when it gets worse)
-    m_notifications->onClosed.subscribe(this, [this](UInt32 id, SNotification::CloseReason){
+    m_notifications->onClosed.subscribe(this, [this](UInt32 id, SVNotification::CloseReason){
         if (id == m_id)
             m_id = 0;
     });
@@ -49,7 +49,7 @@ void BatteryAlerts::update() noexcept
     m_shown = level;
     const Int32 percent { std::max(m_status->batteryPercent, 0) };
 
-    SNotification n;
+    SVNotification n;
     n.appName = "Battery";
     n.replaces = m_id; // The low one becomes the critical one
 
@@ -64,7 +64,7 @@ void BatteryAlerts::update() noexcept
         n.appIcon = "battery-caution";
         n.summary = "Battery Critically Low";
         n.body = std::to_string(percent) + "% of battery remaining. Connect to power now.";
-        n.urgency = SNotification::Urgency::Critical;
+        n.urgency = SVNotification::Urgency::Critical;
     }
 
     Log(CZInfo, CZLN, "{} ({}%)", n.summary, percent);

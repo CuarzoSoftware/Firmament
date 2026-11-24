@@ -4,10 +4,10 @@
 #include <Nodes/TopbarItem.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
-#include <CZ/Services/SStatus.h>
+#include <CZ/Services/SVStatus.h>
 #include <Menus/SystemMenu.h>
 #include <Menus/AppMenu.h>
-#include <CZ/Services/SNotificationsClient.h>
+#include <CZ/Services/SVNotificationsClient.h>
 #include <AK/AKTheme.h>
 #include <AK/Nodes/AKImageFrame.h>
 
@@ -116,7 +116,7 @@ void TopbarSurface::updateUIScale() noexcept
 
 void TopbarSurface::updateStatus() noexcept
 {
-    const SStatus &status { *GetFirm()->status };
+    const SVStatus &status { *GetFirm()->status };
     network.setIconName(status.networkIcon);
     volume.setIconName(status.volumeIcon);
     battery.setIconName(status.batteryIcon);
@@ -124,7 +124,7 @@ void TopbarSurface::updateStatus() noexcept
 
 void TopbarSurface::updateNotifications() noexcept
 {
-    const SNotificationsClient &n { *GetFirm()->notifications };
+    const SVNotificationsClient &n { *GetFirm()->notifications };
     notificationsItem.setVisible(n.available());
 
     const std::string icon { n.doNotDisturb() ? "notifications-disabled-symbolic" : "notifications-symbolic" };

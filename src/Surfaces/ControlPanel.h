@@ -13,9 +13,9 @@
 #include <AK/Nodes/AKTextInput.h>
 #include <AK/Nodes/AKButton.h>
 #include <AK/Nodes/AKScroll.h>
-#include <CZ/Services/SWiFi.h>
-#include <CZ/Services/SAudio.h>
-#include <CZ/Services/SNowPlaying.h>
+#include <CZ/Services/SVWiFi.h>
+#include <CZ/Services/SVAudio.h>
+#include <CZ/Services/SVNowPlaying.h>
 #include <AK/Nodes/AKImage.h>
 #include <Core/CZTimer.h>
 #include <AK/Effects/AKBackgroundBoxShadowEffect.h>
@@ -37,15 +37,15 @@ using namespace CZ;
  * - Toggle tiles: Wi-Fi, Bluetooth, High Performance (off: energy
  *   saving), Dark Mode, Night Shift and Keyboard Light.
  * - The Wi-Fi tile's caret (at its right) shows the networks in range right under its row (a
- *   scrollable list with a maximum height): pressing one joins it (asking for its password inline if needed). See SWiFi.
+ *   scrollable list with a maximum height): pressing one joins it (asking for its password inline if needed). See SVWiFi.
  * - Sliders: display brightness, output volume and microphone level. The sound ones end with a
  *   button opening a menu: Advanced Settings… (System Settings' Sound pane), then the outputs
  *   (inputs) to choose from, and the channels of multichannel ones (pairs for outputs, single
- *   ones for inputs), see SAudio.
- * - Now Playing (when a media player is there, see SNowPlaying): the artwork, title and artist
+ *   ones for inputs), see SVAudio.
+ * - Now Playing (when a media player is there, see SVNowPlaying): the artwork, title and artist
  *   (clicking them brings the player up) and previous / play-pause / next.
  *
- * Only the volume slider is functional for now (see SStatus::setVolume()); the other controls
+ * Only the volume slider is functional for now (see SVStatus::setVolume()); the other controls
  * just show their look (toggles toggle, the brightness slider slides).
  */
 class ControlPanel final : public MMenu
@@ -56,7 +56,7 @@ public:
     /// Opens under @p anchor (the indicators) of the bar @p topbar, grabbing with @p grab if set.
     void openUnder(TopbarSurface *topbar, AKNode *anchor, const CZInputEvent *grab = nullptr) noexcept;
 
-    /// Shows Firmament's current status (battery, volume, Wi-Fi, see SStatus).
+    /// Shows Firmament's current status (battery, volume, Wi-Fi, see SVStatus).
     void updateStatus() noexcept;
 
     // A rounded tile with a round icon badge, a title and its state (On / Off).
@@ -103,9 +103,9 @@ public:
     {
     public:
         NetworkRow(AKNode *parent) noexcept;
-        void set(const SWiFiNetwork &network, bool active, bool connecting) noexcept;
+        void set(const SVWiFiNetwork &network, bool active, bool connecting) noexcept;
         void setAction(const std::string &text) noexcept;
-        SWiFiNetwork network;
+        SVWiFiNetwork network;
         std::function<void()> onClicked;
     protected:
         void pointerEnterEvent(const CZPointerEnterEvent &e) override;
@@ -167,7 +167,7 @@ public:
 private:
     void refreshSize() noexcept;
 
-    /// The Now Playing card (see SNowPlaying).
+    /// The Now Playing card (see SVNowPlaying).
     void updateNowPlaying() noexcept;
 
     // Audio (output / input)
@@ -179,8 +179,8 @@ private:
     // The Wi-Fi networks list
     void setWiFiExpanded(bool expanded) noexcept;
     void updateWiFiList() noexcept;
-    void joinNetwork(const SWiFiNetwork &network) noexcept;
-    void askPassword(const SWiFiNetwork &network, bool wrong) noexcept;
+    void joinNetwork(const SVWiFiNetwork &network) noexcept;
+    void askPassword(const SVWiFiNetwork &network, bool wrong) noexcept;
     void hidePassword() noexcept;
     void joinWithPassword() noexcept;
     void showWiFiMessage(const std::string &message) noexcept; ///< For a few seconds
@@ -228,8 +228,8 @@ private:
     AKButton m_joinButton { "Join", &m_passwordRow };
     NetworkRow m_wifiSettings { &m_wifiCard };
     std::vector<std::unique_ptr<NetworkRow>> m_networkRows;
-    std::shared_ptr<SWiFi> m_wifiBackend;         // Created the first time the list is shown
-    SWiFiNetwork m_passwordNetwork;               // Asked for (m_passwordBox shown)
+    std::shared_ptr<SVWiFi> m_wifiBackend;         // Created the first time the list is shown
+    SVWiFiNetwork m_passwordNetwork;               // Asked for (m_passwordBox shown)
     std::unique_ptr<CZTimer> m_scanTimer, m_messageTimer;
     std::string m_message;
     bool m_wifiExpanded { false };
@@ -248,7 +248,7 @@ private:
     AKContainer m_micRow { YGFlexDirectionRow, false, &m_micCard };
     AKSlider m_micVolume { &m_micRow };
     RoundButton m_inputButton { "pan-down-symbolic", &m_micRow };
-    std::shared_ptr<SAudio> m_audio;
+    std::shared_ptr<SVAudio> m_audio;
     std::unique_ptr<MMenu> m_audioMenu; // Child popup, see openAudioMenu()
 
     // Now Playing card: [artwork][title / artist][previous play next]
@@ -263,7 +263,7 @@ private:
     RoundButton m_previous { "media-skip-backward-symbolic", &m_nowCard };
     RoundButton m_playPause { "media-playback-start-symbolic", &m_nowCard };
     RoundButton m_next { "media-skip-forward-symbolic", &m_nowCard };
-    std::shared_ptr<SNowPlaying> m_nowPlaying;
+    std::shared_ptr<SVNowPlaying> m_nowPlaying;
     std::string m_artworkPath;   // Shown
 };
 

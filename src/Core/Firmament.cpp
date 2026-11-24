@@ -21,10 +21,10 @@
 #include <Nodes/Divider.h>
 #include <Nodes/SubMenu.h>
 #include <Menus/SystemMenu.h>
-#include <CZ/Services/SNotificationsClient.h>
+#include <CZ/Services/SVNotificationsClient.h>
 #include <CZ/Core/CZBus.h>
 #include <systemd/sd-bus.h>
-#include <CZ/Services/SStatus.h>
+#include <CZ/Services/SVStatus.h>
 #include <Core/BatteryAlerts.h>
 #include <Surfaces/ControlPanel.h>
 #include <Core/Controls.h>
@@ -135,7 +135,7 @@ Firmament::Firmament() noexcept
     m_activeSource = &deskMenus->topbar; // Desk by default
 
     // Before the bars (they show it).
-    status = SStatus::GetOrMake();
+    status = SVStatus::GetOrMake();
     status->onChanged.subscribe(this, [this]{
         Log(CZDebug, CZLN, "Status: {}, {}, {}", status->networkInfo, status->volumeInfo, status->batteryInfo);
 
@@ -160,7 +160,7 @@ Firmament::Firmament() noexcept
     });
 
     // Before the bars (they show its button)
-    notifications = SNotificationsClient::GetOrMake();
+    notifications = SVNotificationsClient::GetOrMake();
     notifications->onChanged.subscribe(this, [this]{
         for (MScreen *s : marco->screens())
             if (auto *tb { static_cast<TopbarSurface*>(s->userData) })

@@ -2,7 +2,7 @@
 #include <Surfaces/TopbarSurface.h>
 #include <Core/Firmament.h>
 #include <Core/Assets.h>
-#include <CZ/Services/SStatus.h>
+#include <CZ/Services/SVStatus.h>
 #include <Core/Controls.h>
 #include <Core/CZTimer.h>
 #include <Marco/MApp.h>
@@ -366,7 +366,7 @@ ControlPanel::ControlPanel() noexcept
         button->setBorderRadius(CZBorderRadius::Make(14));
     }
 
-    m_nowPlaying = SNowPlaying::GetOrMake();
+    m_nowPlaying = SVNowPlaying::GetOrMake();
     m_nowPlaying->onChanged.subscribe(this, [this]{ updateNowPlaying(); });
     m_previous.onClicked = [this]{ m_nowPlaying->previous(); };
     m_playPause.onClicked = [this]{ m_nowPlaying->playPause(); };
@@ -377,7 +377,7 @@ ControlPanel::ControlPanel() noexcept
     };
     updateNowPlaying();
 
-    m_audio = SAudio::GetOrMake();
+    m_audio = SVAudio::GetOrMake();
     m_audio->restoreChannels(); // The session's shell: the channels chosen last time
     m_audio->onChanged.subscribe(this, [this]{ updateAudio(); });
     updateAudio();
@@ -430,7 +430,7 @@ void ControlPanel::refreshSize() noexcept
 
 void ControlPanel::updateStatus() noexcept
 {
-    const SStatus &status { *GetFirm()->status };
+    const SVStatus &status { *GetFirm()->status };
 
     // Battery: its icon and level.
     const bool battery { status.batteryPercent >= 0 };
@@ -523,7 +523,7 @@ void ControlPanel::setPowerOptionsVisible(bool visible) noexcept
 
 void ControlPanel::updateAudio() noexcept
 {
-    const SAudioState &s { m_audio->state() };
+    const SVAudioState &s { m_audio->state() };
 
     // The microphone: hidden without one
     const bool mic { s.input.valid && s.input.volume >= 0.f };
@@ -557,14 +557,14 @@ void ControlPanel::openAudioMenu(bool input) noexcept
     menu.addAction("Advanced Settings…", [this]{ closeAndRun([]{ GetFirm()->controls->openSoundSettings(); }); });
     menu.addDivider();
 
-    const SAudioState &s { m_audio->state() };
-    const SAudioSelection &sel { input ? s.input : s.output };
+    const SVAudioState &s { m_audio->state() };
+    const SVAudioSelection &sel { input ? s.input : s.output };
     const auto &devices { input ? s.inputs : s.outputs };
 
     if (devices.empty())
         menu.addAction(input ? "No Inputs" : "No Outputs", {}, false);
 
-    for (const SAudioDevice &d : devices)
+    for (const SVAudioDevice &d : devices)
     {
         const bool current { sel.device == d.name };
         menu.addAction(d.displayName, [this, input, name = d.name]{ m_audio->select(input, name); })
@@ -582,7 +582,7 @@ void ControlPanel::openAudioMenu(bool input) noexcept
                 if (!input && c + 1 < n)
                     channels.push_back(c + 1);
 
-                MMenuAction &action { menu.addAction(SAudioState::ChannelsName(input, channels),
+                MMenuAction &action { menu.addAction(SVAudioState::ChannelsName(input, channels),
                     [this, input, name = d.name, channels]{ m_audio->select(input, name, channels); }) };
                 action.setChecked(current && sel.channels == channels);
                 action.text.layout().setMargin(YGEdgeLeft, 14.f);
@@ -599,7 +599,7 @@ void ControlPanel::openAudioMenu(bool input) noexcept
 
 void ControlPanel::updateNowPlaying() noexcept
 {
-    const SNowPlaying::State &s { m_nowPlaying->state() };
+    const SVNowPlaying::State &s { m_nowPlaying->state() };
     const bool shown { s.available && (!s.title.empty() || !s.identity.empty()) };
     m_nowCard.setVisible(shown);
 
@@ -673,7 +673,7 @@ void ControlPanel::setWiFiExpanded(bool expanded) noexcept
     {
         if (!m_wifiBackend)
         {
-            m_wifiBackend = SWiFi::GetOrMake();
+            m_wifiBackend = SVWiFi::GetOrMake();
             m_wifiBackend->onChanged.subscribe(this, [this]{ updateWiFiList(); });
             m_wifiBackend->onJoinFailed.subscribe(this, [this](const std::string &ssid, bool wrongPassword){
                 if (wrongPassword)
@@ -717,18 +717,18 @@ void ControlPanel::updateWiFiList() noexcept
     if (!m_wifiBackend || !m_wifiExpanded)
         return;
 
-    const SWiFiState &s { m_wifiBackend->state() };
+    const SVWiFiState &s { m_wifiBackend->state() };
     const bool on { s.available && s.enabled };
 
     // The one it's connected to first, then the known ones, then by strength.
-    std::vector<const SWiFiNetwork*> networks;
+    std::vector<const SVWiFiNetwork*> networks;
 
     if (on)
         for (const auto &n : s.networks)
             if (!n.ssid.empty())
                 networks.push_back(&n);
 
-    std::stable_sort(networks.begin(), networks.end(), [&s](const SWiFiNetwork *a, const SWiFiNetwork *b){
+    std::stable_sort(networks.begin(), networks.end(), [&s](const SVWiFiNetwork *a, const SVWiFiNetwork *b){
         const bool aActive { a->ssid == s.activeSsid }, bActive { b->ssid == s.activeSsid };
         if (aActive != bActive) return aActive;
         if (a->known() != b->known()) return a->known();
@@ -748,7 +748,7 @@ void ControlPanel::updateWiFiList() noexcept
         row->onClicked = [this, raw]{ joinNetwork(raw->network); };
     }
 
-    const bool connecting { s.link == SWiFiState::Link::Connecting };
+    const bool connecting { s.link == SVWiFiState::Link::Connecting };
 
     for (size_t i = 0; i < networks.size(); i++)
     {
@@ -788,7 +788,7 @@ void ControlPanel::updateWiFiList() noexcept
         refreshSize();
 }
 
-void ControlPanel::joinNetwork(const SWiFiNetwork &network) noexcept
+void ControlPanel::joinNetwork(const SVWiFiNetwork &network) noexcept
 {
     if (!m_wifiBackend || network.ssid == m_wifiBackend->state().activeSsid)
         return;
@@ -811,7 +811,7 @@ void ControlPanel::joinNetwork(const SWiFiNetwork &network) noexcept
     m_wifiBackend->join(network);
 }
 
-void ControlPanel::askPassword(const SWiFiNetwork &network, bool wrong) noexcept
+void ControlPanel::askPassword(const SVWiFiNetwork &network, bool wrong) noexcept
 {
     m_passwordNetwork = network;
     m_passwordLabel.setText(wrong ?
@@ -846,7 +846,7 @@ void ControlPanel::joinWithPassword() noexcept
     if (!m_wifiBackend || m_password.text().size() < 8)
         return;
 
-    const SWiFiNetwork network { m_passwordNetwork };
+    const SVWiFiNetwork network { m_passwordNetwork };
     const std::string password { m_password.text() };
     hidePassword();
     m_message.clear();
@@ -883,7 +883,7 @@ ControlPanel::NetworkRow::NetworkRow(AKNode *parent) noexcept :
     updateColors();
 }
 
-void ControlPanel::NetworkRow::set(const SWiFiNetwork &n, bool active, bool connecting) noexcept
+void ControlPanel::NetworkRow::set(const SVWiFiNetwork &n, bool active, bool connecting) noexcept
 {
     network = n;
     m_name.setText(ShortName(n.ssid));

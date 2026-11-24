@@ -33,7 +33,7 @@ public:
     /// Resizes the bar and its items for Firmament::uiScale().
     void updateUIScale() noexcept;
 
-    /// Shows Firmament's current status (SStatus) in the indicators.
+    /// Shows Firmament's current status (SVStatus) in the indicators.
     void updateStatus() noexcept;
 
     /// Shows the notifications button if Gazette is running, its icon (Do Not Disturb) and whether
@@ -47,7 +47,7 @@ public:
     AKRoundSolidColor outline { SkColorSetARGB(96, 0, 0, 0), CZBorderRadius::Make(4), &vibrancy };
     AKContainer spacer { YGFlexDirectionRow, false, &vibrancy };
     AKContainer indicators { YGFlexDirectionRow, false, &vibrancy }; ///< Status icons, before the clock
-    StatusIcon network { &indicators }; ///< Wi-Fi signal / wired / offline (see SStatus)
+    StatusIcon network { &indicators }; ///< Wi-Fi signal / wired / offline (see SVStatus)
     StatusIcon volume { &indicators };  ///< Output volume
     StatusIcon battery { &indicators }; ///< Battery level and charging state
     AKText clock { "", &vibrancy };    ///< Date and time (see Firmament::clockText())
