@@ -153,8 +153,8 @@ void TopbarSurface::updateNotifications() noexcept
         notificationsItem.setUIScale(m_uiScale > 0.f ? m_uiScale : GetFirm()->uiScale());
     }
 
-    // Outlined while its center is open (on this screen or another one: Gazette doesn't say)
-    if (n.centerShown() && notificationsItem.visible())
+    // Outlined while its center is open on this screen
+    if (n.centerShown() && n.centerScreen() == m_screen.props().name && notificationsItem.visible())
         setActiveItem(&notificationsItem); // Again: its icon may have changed
     else if (!GetFirm()->activeTopbarItem && outline.visible())
         setActiveItem(nullptr);
